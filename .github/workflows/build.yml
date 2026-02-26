@@ -21,10 +21,10 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore Jellyfin.Plugin.PdfCover/Jellyfin.Plugin.PdfCover.csproj
 
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build Jellyfin.Plugin.PdfCover/Jellyfin.Plugin.PdfCover.csproj -c Release --no-restore
 
       - name: Create plugin package
         run: |
