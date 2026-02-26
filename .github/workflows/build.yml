@@ -1,0 +1,45 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore Jellyfin.Plugin.PdfCover/Jellyfin.Plugin.PdfCover.csproj
+
+      - name: Build
+        run: dotnet build Jellyfin.Plugin.PdfCover/Jellyfin.Plugin.PdfCover.csproj -c Release --no-restore
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp Jellyfin.Plugin.PdfCover/bin/Release/net9.0/Jellyfin.Plugin.PdfCover.dll release/
+          cp build.yaml release/
+          cd release && zip -r ../jellyfin-plugin-pdf-cover.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyfin-plugin-pdf-cover
+          path: jellyfin-plugin-pdf-cover.zip
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jellyfin-plugin-pdf-cover.zip
+          generate_release_notes: true
