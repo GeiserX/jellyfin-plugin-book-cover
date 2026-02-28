@@ -10,9 +10,11 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.PdfCover;
 
 /// <summary>
-/// Fallback cover provider for books. Handles PDFs (first page via pdftoppm)
-/// and EPUBs (aggressive image search inside the ZIP archive).
-/// Acts as a safety net when the Bookshelf plugin fails to extract a cover.
+/// Fallback cover provider for books and audiobooks. Handles PDFs (first page
+/// via pdftoppm), EPUBs (aggressive image search inside the ZIP archive), and
+/// audio files (embedded art extraction via ffmpeg raw stream copy).
+/// Acts as a safety net when built-in providers fail — particularly for audio
+/// files with mislabeled codec tags (e.g. JPEG data tagged as PNG in ID3).
 /// </summary>
 public class PdfCoverImageProvider : IDynamicImageProvider
 {
@@ -26,8 +28,15 @@ public class PdfCoverImageProvider : IDynamicImageProvider
         "cover", "portada", "front", "frontcover", "front_cover", "book_cover"
     };
 
+    private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".opus", ".wma", ".aac", ".wav"
+    };
+
     private readonly ILogger<PdfCoverImageProvider> _logger;
     private bool? _pdftoppmAvailable;
+    private string? _ffmpegPath;
+    private bool _ffmpegChecked;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PdfCoverImageProvider"/> class.
@@ -41,7 +50,7 @@ public class PdfCoverImageProvider : IDynamicImageProvider
     public string Name => "Book Cover";
 
     /// <inheritdoc />
-    public bool Supports(BaseItem item) => item is Book;
+    public bool Supports(BaseItem item) => item is Book || item is AudioBook;
 
     /// <inheritdoc />
     public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
@@ -52,16 +61,28 @@ public class PdfCoverImageProvider : IDynamicImageProvider
     /// <inheritdoc />
     public async Task<DynamicImageResponse> GetImage(BaseItem item, ImageType type, CancellationToken cancellationToken)
     {
-        var ext = Path.GetExtension(item.Path);
+        var path = item.Path;
+
+        if (Directory.Exists(path))
+        {
+            return await GetFolderAudioCover(path, cancellationToken).ConfigureAwait(false);
+        }
+
+        var ext = Path.GetExtension(path);
 
         if (string.Equals(ext, ".epub", StringComparison.OrdinalIgnoreCase))
         {
-            return await GetEpubCover(item.Path, cancellationToken).ConfigureAwait(false);
+            return await GetEpubCover(path, cancellationToken).ConfigureAwait(false);
         }
 
         if (string.Equals(ext, ".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            return await GetPdfCover(item.Path, cancellationToken).ConfigureAwait(false);
+            return await GetPdfCover(path, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (AudioExtensions.Contains(ext))
+        {
+            return await GetAudioCover(path, cancellationToken).ConfigureAwait(false);
         }
 
         return new DynamicImageResponse { HasImage = false };
@@ -333,5 +354,210 @@ public class PdfCoverImageProvider : IDynamicImageProvider
         {
             // Best-effort cleanup
         }
+    }
+
+    private async Task<DynamicImageResponse> GetAudioCover(string path, CancellationToken cancellationToken)
+    {
+        var noImage = new DynamicImageResponse { HasImage = false };
+        var ffmpegPath = GetFfmpegPath();
+
+        if (ffmpegPath == null)
+        {
+            return noImage;
+        }
+
+        var config = Plugin.Instance?.Configuration;
+        var timeoutSec = config?.TimeoutSeconds ?? 30;
+
+        // Use .bin extension — the actual format is detected from magic bytes
+        var tempFile = Path.Combine(Path.GetTempPath(), $"jf-audio-{Guid.NewGuid():N}.bin");
+
+        try
+        {
+            // Raw-copy the embedded art stream without re-encoding.
+            // This bypasses codec tag validation, which is exactly what fails
+            // in Jellyfin's built-in Image Extractor when ID3 tags declare PNG
+            // but the actual data is JPEG (or vice versa).
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = ffmpegPath,
+                RedirectStandardOutput = false,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            process.StartInfo.ArgumentList.Add("-v");
+            process.StartInfo.ArgumentList.Add("error");
+            process.StartInfo.ArgumentList.Add("-y");
+            process.StartInfo.ArgumentList.Add("-i");
+            process.StartInfo.ArgumentList.Add(path);
+            process.StartInfo.ArgumentList.Add("-an");
+            process.StartInfo.ArgumentList.Add("-vcodec");
+            process.StartInfo.ArgumentList.Add("copy");
+            process.StartInfo.ArgumentList.Add(tempFile);
+
+            process.Start();
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSec));
+
+            try
+            {
+                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                TryKill(process);
+                _logger.LogWarning("ffmpeg timed out after {Timeout}s for {Path}", timeoutSec, path);
+                return noImage;
+            }
+
+            if (!File.Exists(tempFile))
+            {
+                return noImage;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(tempFile, cancellationToken).ConfigureAwait(false);
+            CleanupTemp(tempFile);
+
+            if (bytes.Length < 1000)
+            {
+                return noImage;
+            }
+
+            var format = DetectImageFormat(bytes);
+            if (format == null)
+            {
+                _logger.LogDebug("Extracted embedded art but unrecognised image format for {Path}", path);
+                return noImage;
+            }
+
+            _logger.LogDebug("Extracted {Format} cover ({Size} bytes) from {Path}", format, bytes.Length, path);
+
+            return new DynamicImageResponse
+            {
+                HasImage = true,
+                Stream = new MemoryStream(bytes),
+                Format = format.Value
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Failed to extract audio cover for {Path}", path);
+            CleanupTemp(tempFile);
+            return noImage;
+        }
+    }
+
+    /// <summary>
+    /// For folder-based audiobooks (multi-file chapters), extracts embedded
+    /// art from the first audio file in the directory.
+    /// </summary>
+    private async Task<DynamicImageResponse> GetFolderAudioCover(string dirPath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var audioFile = Directory.EnumerateFiles(dirPath)
+                .Where(f => AudioExtensions.Contains(Path.GetExtension(f)))
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+
+            if (audioFile != null)
+            {
+                return await GetAudioCover(audioFile, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to scan folder for audio files: {Path}", dirPath);
+        }
+
+        return new DynamicImageResponse { HasImage = false };
+    }
+
+    /// <summary>
+    /// Detects the actual image format from magic bytes, ignoring file
+    /// extensions or codec tags which may be incorrect.
+    /// </summary>
+    private static ImageFormat? DetectImageFormat(byte[] data)
+    {
+        if (data.Length < 4)
+        {
+            return null;
+        }
+
+        if (data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+        {
+            return ImageFormat.Jpg;
+        }
+
+        if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+        {
+            return ImageFormat.Png;
+        }
+
+        if (data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46)
+        {
+            return ImageFormat.Gif;
+        }
+
+        if (data.Length > 12
+            && data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46
+            && data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50)
+        {
+            return ImageFormat.Webp;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Locates ffmpeg — checks the Jellyfin bundled path first, then system PATH.
+    /// </summary>
+    internal string? GetFfmpegPath()
+    {
+        if (_ffmpegChecked)
+        {
+            return _ffmpegPath;
+        }
+
+        _ffmpegChecked = true;
+
+        const string jellyfinFfmpeg = "/usr/lib/jellyfin-ffmpeg/ffmpeg";
+        if (File.Exists(jellyfinFfmpeg))
+        {
+            _ffmpegPath = jellyfinFfmpeg;
+            _logger.LogInformation("Found jellyfin-ffmpeg — audio cover extraction enabled");
+            return _ffmpegPath;
+        }
+
+        try
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                ArgumentList = { "-version" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            process.Start();
+            process.WaitForExit(5000);
+
+            _ffmpegPath = "ffmpeg";
+            _logger.LogInformation("Found system ffmpeg — audio cover extraction enabled");
+        }
+        catch (Exception)
+        {
+            _logger.LogWarning("ffmpeg not found. Audio cover extraction disabled");
+            _ffmpegPath = null;
+        }
+
+        return _ffmpegPath;
     }
 }

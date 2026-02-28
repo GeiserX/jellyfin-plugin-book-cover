@@ -8,9 +8,9 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.PdfCover;
 
 /// <summary>
-/// Fallback cover provider for Jellyfin book libraries. Extracts PDF first pages
-/// via pdftoppm and searches EPUB archives for cover images when the Bookshelf
-/// plugin cannot find one.
+/// Fallback cover provider for Jellyfin book and audiobook libraries. Extracts
+/// PDF first pages via pdftoppm, searches EPUB archives for cover images, and
+/// extracts embedded artwork from audio files via ffmpeg raw stream copy.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {

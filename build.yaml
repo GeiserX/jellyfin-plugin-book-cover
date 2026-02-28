@@ -1,20 +1,21 @@
 ---
 name: "Book Cover"
 guid: "82eef869-3f18-4678-968d-06efc10b60cf"
-version: "2.0.0.0"
+version: "3.0.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Fallback cover extraction for PDF and EPUB book files"
+overview: "Fallback cover extraction for books (PDF, EPUB) and audiobooks (MP3, M4A, M4B, FLAC)"
 description: >
-  Fallback cover provider for Jellyfin book libraries. For PDFs, extracts
-  the first page via pdftoppm. For EPUBs, performs aggressive image search
-  inside the archive (by name, path, or largest image) when the Bookshelf
-  plugin fails. Requires poppler-utils for PDF support.
+  Fallback cover provider for Jellyfin book and audiobook libraries. For PDFs,
+  extracts the first page via pdftoppm. For EPUBs, performs aggressive image search
+  inside the archive. For audiobooks, extracts embedded artwork via ffmpeg raw stream
+  copy — handling mislabeled codec tags (e.g. JPEG data tagged as PNG in ID3) that
+  break Jellyfin's built-in Image Extractor. Supports folder-based audiobooks too.
 category: "Books"
 owner: "GeiserX"
 artifacts:
   - "Jellyfin.Plugin.PdfCover.dll"
 changelog: >
-  v2.0.0: Added EPUB fallback cover extraction. Searches for cover images
-  by filename (cover, portada, front), path patterns, and largest-image
-  heuristic. Works as safety net when Bookshelf plugin cannot find covers.
+  v3.0.0: Added audiobook cover extraction via ffmpeg. Raw stream copy bypasses
+  codec tag mismatches. Supports MP3, M4A, M4B, FLAC, OGG, and folder-based
+  audiobooks. Detects image format from magic bytes instead of trusting file tags.

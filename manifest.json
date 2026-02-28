@@ -2,8 +2,8 @@
   {
     "guid": "82eef869-3f18-4678-968d-06efc10b60cf",
     "name": "Book Cover",
-    "overview": "Fallback cover extraction for PDF and EPUB book libraries.",
-    "description": "Fallback cover provider for Jellyfin book libraries. For PDFs, extracts the first page via pdftoppm. For EPUBs, performs aggressive image search inside the archive when the Bookshelf plugin fails.",
+    "overview": "Fallback cover extraction for books (PDF, EPUB) and audiobooks (MP3, M4A, M4B, FLAC).",
+    "description": "Fallback cover provider for Jellyfin book and audiobook libraries. Extracts PDF first pages, searches EPUB archives for covers, and extracts embedded artwork from audio files via ffmpeg raw stream copy — handling mislabeled codec tags that break the built-in Image Extractor.",
     "owner": "GeiserX",
     "category": "Books",
     "imageUrl": "",

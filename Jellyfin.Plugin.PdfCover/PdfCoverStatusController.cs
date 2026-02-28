@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Jellyfin.Plugin.PdfCover;
 
 /// <summary>
-/// API controller exposing pdftoppm availability status for the admin config page.
+/// API controller exposing tool availability status for the admin config page.
 /// </summary>
 [ApiController]
 [Route("PdfCover")]
@@ -24,24 +24,33 @@ public class PdfCoverStatusController : ControllerBase
     }
 
     /// <summary>
-    /// Returns whether pdftoppm is available in the container.
+    /// Returns tool availability status for cover extraction.
     /// </summary>
     [HttpGet("Status")]
     [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<PdfCoverStatus> GetStatus()
     {
-        return new PdfCoverStatus { PdftoppmAvailable = _provider.IsPdftoppmAvailable() };
+        return new PdfCoverStatus
+        {
+            PdftoppmAvailable = _provider.IsPdftoppmAvailable(),
+            FfmpegAvailable = _provider.GetFfmpegPath() != null
+        };
     }
 }
 
 /// <summary>
-/// Status response indicating whether the PDF rendering tool is available.
+/// Status response indicating tool availability for cover extraction.
 /// </summary>
 public class PdfCoverStatus
 {
     /// <summary>
-    /// Gets or sets a value indicating whether pdftoppm is available.
+    /// Gets or sets a value indicating whether pdftoppm is available (PDF covers).
     /// </summary>
     public bool PdftoppmAvailable { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether ffmpeg is available (audio covers).
+    /// </summary>
+    public bool FfmpegAvailable { get; set; }
 }

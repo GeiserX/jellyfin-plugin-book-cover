@@ -53,11 +53,14 @@
             <div class="content-primary">
                 <h2>Book Cover Settings</h2>
                 <p style="color: var(--theme-text-secondary, #999); margin-bottom: 1.5em;">
-                    Fallback cover provider for books. Extracts PDF first pages via pdftoppm,
-                    and for EPUBs searches the archive for cover images when the Bookshelf plugin cannot find one.
+                    Fallback cover provider for books and audiobooks. Extracts PDF first pages via pdftoppm,
+                    searches EPUB archives for cover images, and extracts embedded artwork from audio files
+                    (MP3, M4A, M4B, FLAC, etc.) via ffmpeg — handling mislabeled codec tags that break
+                    Jellyfin's built-in Image Extractor.
                 </p>
 
-                <div id="statusBox" class="status-box" style="display:none;"></div>
+                <div id="statusPdftoppm" class="status-box" style="display:none;"></div>
+                <div id="statusFfmpeg" class="status-box" style="display:none;"></div>
 
                 <form id="PdfCoverConfigForm">
                     <div class="config-section">
@@ -113,16 +116,25 @@
                     document.querySelector('#txtTimeout').value = config.TimeoutSeconds || 30;
                     Dashboard.hideLoadingMsg();
 
-                    // Check pdftoppm availability
                     ApiClient.getJSON(ApiClient.getUrl('PdfCover/Status')).then(function (status) {
-                        var box = document.querySelector('#statusBox');
-                        box.style.display = 'block';
+                        var pdfBox = document.querySelector('#statusPdftoppm');
+                        pdfBox.style.display = 'block';
                         if (status.PdftoppmAvailable) {
-                            box.className = 'status-box status-ok';
-                            box.innerHTML = '&#10003; pdftoppm detected &mdash; PDF cover extraction is active.';
+                            pdfBox.className = 'status-box status-ok';
+                            pdfBox.innerHTML = '&#10003; pdftoppm detected &mdash; PDF cover extraction is active.';
                         } else {
-                            box.className = 'status-box status-err';
-                            box.innerHTML = '&#10007; pdftoppm not found. Install <code>poppler-utils</code> in the Jellyfin container.';
+                            pdfBox.className = 'status-box status-err';
+                            pdfBox.innerHTML = '&#10007; pdftoppm not found. Install <code>poppler-utils</code> for PDF cover extraction.';
+                        }
+
+                        var ffBox = document.querySelector('#statusFfmpeg');
+                        ffBox.style.display = 'block';
+                        if (status.FfmpegAvailable) {
+                            ffBox.className = 'status-box status-ok';
+                            ffBox.innerHTML = '&#10003; ffmpeg detected &mdash; Audio cover extraction is active.';
+                        } else {
+                            ffBox.className = 'status-box status-err';
+                            ffBox.innerHTML = '&#10007; ffmpeg not found. Audio cover extraction disabled.';
                         }
                     }).catch(function () {
                         // Endpoint might not exist yet, ignore
