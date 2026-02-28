@@ -82,7 +82,14 @@ public class PdfCoverImageProvider : IDynamicImageProvider
 
         if (AudioExtensions.Contains(ext))
         {
-            return await GetAudioCover(path, cancellationToken).ConfigureAwait(false);
+            var result = await GetAudioCover(path, cancellationToken).ConfigureAwait(false);
+            if (result.HasImage)
+            {
+                return result;
+            }
+
+            // Fallback: check for sidecar image (same name.jpg, cover.jpg, folder.jpg)
+            return await GetSidecarImage(path, cancellationToken).ConfigureAwait(false);
         }
 
         return new DynamicImageResponse { HasImage = false };
@@ -369,8 +376,9 @@ public class PdfCoverImageProvider : IDynamicImageProvider
         var config = Plugin.Instance?.Configuration;
         var timeoutSec = config?.TimeoutSeconds ?? 30;
 
-        // Use .bin extension — the actual format is detected from magic bytes
-        var tempFile = Path.Combine(Path.GetTempPath(), $"jf-audio-{Guid.NewGuid():N}.bin");
+        // Use .jpg extension so ffmpeg can determine the output muxer (image2).
+        // The actual format is detected from magic bytes regardless of extension.
+        var tempFile = Path.Combine(Path.GetTempPath(), $"jf-audio-{Guid.NewGuid():N}.jpg");
 
         try
         {
@@ -427,19 +435,24 @@ public class PdfCoverImageProvider : IDynamicImageProvider
                 return noImage;
             }
 
-            var format = DetectImageFormat(bytes);
+            var (format, dataOffset) = DetectImageFormat(bytes);
             if (format == null)
             {
                 _logger.LogDebug("Extracted embedded art but unrecognised image format for {Path}", path);
                 return noImage;
             }
 
-            _logger.LogDebug("Extracted {Format} cover ({Size} bytes) from {Path}", format, bytes.Length, path);
+            _logger.LogDebug("Extracted {Format} cover ({Size} bytes, offset {Offset}) from {Path}", format, bytes.Length, dataOffset, path);
+
+            // Strip any leading padding bytes before the actual image header
+            var imageStream = dataOffset > 0
+                ? new MemoryStream(bytes, dataOffset, bytes.Length - dataOffset)
+                : new MemoryStream(bytes);
 
             return new DynamicImageResponse
             {
                 HasImage = true,
-                Stream = new MemoryStream(bytes),
+                Stream = imageStream,
                 Format = format.Value
             };
         }
@@ -452,6 +465,70 @@ public class PdfCoverImageProvider : IDynamicImageProvider
     }
 
     /// <summary>
+    /// Checks for a sidecar image file next to the audio file — either with
+    /// the same base name (e.g. audiobook.jpg next to audiobook.m4b) or with
+    /// common cover names (cover.jpg, folder.jpg, front.jpg) in the same directory.
+    /// </summary>
+    private async Task<DynamicImageResponse> GetSidecarImage(string audioPath, CancellationToken cancellationToken)
+    {
+        var noImage = new DynamicImageResponse { HasImage = false };
+        var dir = Path.GetDirectoryName(audioPath);
+
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+        {
+            return noImage;
+        }
+
+        var baseName = Path.GetFileNameWithoutExtension(audioPath);
+        string[] imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+        string[] coverNames = [baseName, "cover", "folder", "front", "poster", "thumb"];
+
+        try
+        {
+            foreach (var name in coverNames)
+            {
+                foreach (var ext in imageExtensions)
+                {
+                    var candidate = Path.Combine(dir, name + ext);
+                    if (File.Exists(candidate))
+                    {
+                        var bytes = await File.ReadAllBytesAsync(candidate, cancellationToken).ConfigureAwait(false);
+                        if (bytes.Length < 1000)
+                        {
+                            continue;
+                        }
+
+                        var (format, offset) = DetectImageFormat(bytes);
+                        if (format == null)
+                        {
+                            continue;
+                        }
+
+                        _logger.LogDebug("Found sidecar cover {File} for {Path}", candidate, audioPath);
+
+                        var imageStream = offset > 0
+                            ? new MemoryStream(bytes, offset, bytes.Length - offset)
+                            : new MemoryStream(bytes);
+
+                        return new DynamicImageResponse
+                        {
+                            HasImage = true,
+                            Stream = imageStream,
+                            Format = format.Value
+                        };
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Error checking sidecar images for {Path}", audioPath);
+        }
+
+        return noImage;
+    }
+
+    /// <summary>
     /// For folder-based audiobooks (multi-file chapters), extracts embedded
     /// art from the first audio file in the directory.
     /// </summary>
@@ -459,6 +536,35 @@ public class PdfCoverImageProvider : IDynamicImageProvider
     {
         try
         {
+            // First check for cover/folder images in the directory
+            string[] imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+            string[] coverNames = ["cover", "folder", "front", "poster", "thumb"];
+
+            foreach (var name in coverNames)
+            {
+                foreach (var ext in imageExtensions)
+                {
+                    var candidate = Path.Combine(dirPath, name + ext);
+                    if (File.Exists(candidate))
+                    {
+                        var bytes = await File.ReadAllBytesAsync(candidate, cancellationToken).ConfigureAwait(false);
+                        if (bytes.Length >= 1000)
+                        {
+                            var (format, offset) = DetectImageFormat(bytes);
+                            if (format != null)
+                            {
+                                _logger.LogDebug("Found folder cover image {File}", candidate);
+                                var imageStream = offset > 0
+                                    ? new MemoryStream(bytes, offset, bytes.Length - offset)
+                                    : new MemoryStream(bytes);
+                                return new DynamicImageResponse { HasImage = true, Stream = imageStream, Format = format.Value };
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Then try extracting embedded art from the first audio file
             var audioFile = Directory.EnumerateFiles(dirPath)
                 .Where(f => AudioExtensions.Contains(Path.GetExtension(f)))
                 .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
@@ -466,7 +572,14 @@ public class PdfCoverImageProvider : IDynamicImageProvider
 
             if (audioFile != null)
             {
-                return await GetAudioCover(audioFile, cancellationToken).ConfigureAwait(false);
+                var result = await GetAudioCover(audioFile, cancellationToken).ConfigureAwait(false);
+                if (result.HasImage)
+                {
+                    return result;
+                }
+
+                // Final fallback: sidecar image next to the audio file
+                return await GetSidecarImage(audioFile, cancellationToken).ConfigureAwait(false);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -479,38 +592,56 @@ public class PdfCoverImageProvider : IDynamicImageProvider
 
     /// <summary>
     /// Detects the actual image format from magic bytes, ignoring file
-    /// extensions or codec tags which may be incorrect.
+    /// extensions or codec tags which may be incorrect. Scans past any
+    /// leading null/padding bytes that raw stream copy may include.
     /// </summary>
-    private static ImageFormat? DetectImageFormat(byte[] data)
+    /// <returns>Tuple of (format, byte offset where the image header starts).</returns>
+    private static (ImageFormat? Format, int Offset) DetectImageFormat(byte[] data)
     {
         if (data.Length < 4)
         {
-            return null;
+            return (null, 0);
         }
 
-        if (data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+        // Skip leading null bytes (raw stream copy can include padding)
+        int offset = 0;
+        while (offset < data.Length && offset < 16 && data[offset] == 0x00)
         {
-            return ImageFormat.Jpg;
+            offset++;
         }
 
-        if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+        if (offset + 4 > data.Length)
         {
-            return ImageFormat.Png;
+            return (null, 0);
         }
 
-        if (data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46)
+        // JPEG: FF D8 FF
+        if (data[offset] == 0xFF && data[offset + 1] == 0xD8 && data[offset + 2] == 0xFF)
         {
-            return ImageFormat.Gif;
+            return (ImageFormat.Jpg, offset);
         }
 
-        if (data.Length > 12
-            && data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46
-            && data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50)
+        // PNG: 89 50 4E 47
+        if (data[offset] == 0x89 && data[offset + 1] == 0x50 && data[offset + 2] == 0x4E && data[offset + 3] == 0x47)
         {
-            return ImageFormat.Webp;
+            return (ImageFormat.Png, offset);
         }
 
-        return null;
+        // GIF: 47 49 46
+        if (data[offset] == 0x47 && data[offset + 1] == 0x49 && data[offset + 2] == 0x46)
+        {
+            return (ImageFormat.Gif, offset);
+        }
+
+        // WebP: RIFF....WEBP
+        if (offset + 12 < data.Length
+            && data[offset] == 0x52 && data[offset + 1] == 0x49 && data[offset + 2] == 0x46 && data[offset + 3] == 0x46
+            && data[offset + 8] == 0x57 && data[offset + 9] == 0x45 && data[offset + 10] == 0x42 && data[offset + 11] == 0x50)
+        {
+            return (ImageFormat.Webp, offset);
+        }
+
+        return (null, 0);
     }
 
     /// <summary>
