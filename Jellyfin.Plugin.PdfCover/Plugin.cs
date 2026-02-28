@@ -8,8 +8,9 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.PdfCover;
 
 /// <summary>
-/// Extracts the first page of PDF files as cover images for Jellyfin book libraries.
-/// Requires poppler-utils (pdftoppm) installed in the host container.
+/// Fallback cover provider for Jellyfin book libraries. Extracts PDF first pages
+/// via pdftoppm and searches EPUB archives for cover images when the Bookshelf
+/// plugin cannot find one.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
@@ -23,7 +24,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <inheritdoc />
-    public override string Name => "PDF Cover";
+    public override string Name => "Book Cover";
 
     /// <inheritdoc />
     public override Guid Id => Guid.Parse("82eef869-3f18-4678-968d-06efc10b60cf");

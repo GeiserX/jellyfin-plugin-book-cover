@@ -1,18 +1,20 @@
 ---
-name: "PDF Cover"
+name: "Book Cover"
 guid: "82eef869-3f18-4678-968d-06efc10b60cf"
-version: "1.0.0.0"
+version: "2.0.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Extracts the first page of PDF files as cover images for book libraries"
+overview: "Fallback cover extraction for PDF and EPUB book files"
 description: >
-  Automatically generates cover thumbnails for PDF books and magazines
-  by extracting the first page. Requires poppler-utils (pdftoppm) installed
-  in the Jellyfin container.
+  Fallback cover provider for Jellyfin book libraries. For PDFs, extracts
+  the first page via pdftoppm. For EPUBs, performs aggressive image search
+  inside the archive (by name, path, or largest image) when the Bookshelf
+  plugin fails. Requires poppler-utils for PDF support.
 category: "Books"
 owner: "GeiserX"
 artifacts:
   - "Jellyfin.Plugin.PdfCover.dll"
 changelog: >
-  Initial release. Supports PDF cover extraction via pdftoppm with
-  configurable DPI, JPEG quality, and timeout settings.
+  v2.0.0: Added EPUB fallback cover extraction. Searches for cover images
+  by filename (cover, portada, front), path patterns, and largest-image
+  heuristic. Works as safety net when Bookshelf plugin cannot find covers.

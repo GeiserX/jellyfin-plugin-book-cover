@@ -31,13 +31,13 @@ jobs:
           mkdir -p artifacts
           cp Jellyfin.Plugin.PdfCover/bin/Release/net9.0/Jellyfin.Plugin.PdfCover.dll artifacts/
           cp build.yaml artifacts/
-          cd artifacts && zip -r ../pdf-cover.zip .
+          cd artifacts && zip -r ../book-cover.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pdf-cover-plugin
-          path: pdf-cover.zip
+          name: book-cover-plugin
+          path: book-cover.zip
 
   release:
     needs: build
@@ -53,7 +53,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: pdf-cover-plugin
+          name: book-cover-plugin
 
       - name: Extract version from tag
         id: version
@@ -62,36 +62,36 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: PDF Cover v${{ steps.version.outputs.VERSION }}
+          name: Book Cover v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: pdf-cover.zip
+          files: book-cover.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update manifest.json
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
-          CHECKSUM=$(sha256sum pdf-cover.zip | awk '{print $1}')
+          CHECKSUM=$(sha256sum book-cover.zip | awk '{print $1}')
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           cat > manifest.json << EOF
           [
             {
               "guid": "82eef869-3f18-4678-968d-06efc10b60cf",
-              "name": "PDF Cover",
-              "overview": "Extracts the first page of PDF files as cover images for book libraries.",
-              "description": "Automatically generates cover thumbnails for PDF books and magazines by extracting the first page. Requires poppler-utils (pdftoppm) installed in the Jellyfin container.",
+              "name": "Book Cover",
+              "overview": "Fallback cover extraction for PDF and EPUB book libraries.",
+              "description": "Fallback cover provider for Jellyfin book libraries. For PDFs, extracts the first page via pdftoppm. For EPUBs, performs aggressive image search inside the archive when the Bookshelf plugin fails.",
               "owner": "GeiserX",
               "category": "Books",
               "imageUrl": "",
               "versions": [
                 {
                   "version": "${VERSION}",
-                  "changelog": "See https://github.com/GeiserX/jellyfin-plugin-pdf-cover/releases/tag/v${VERSION}",
+                  "changelog": "See https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/tag/v${VERSION}",
                   "targetAbi": "10.11.0.0",
-                  "sourceUrl": "https://github.com/GeiserX/jellyfin-plugin-pdf-cover/releases/download/v${VERSION}/pdf-cover.zip",
+                  "sourceUrl": "https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/download/v${VERSION}/book-cover.zip",
                   "checksum": "${CHECKSUM}",
                   "timestamp": "${TIMESTAMP}"
                 }

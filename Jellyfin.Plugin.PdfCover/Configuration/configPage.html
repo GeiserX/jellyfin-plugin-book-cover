@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PDF Cover</title>
+    <title>Book Cover</title>
     <style>
         .config-section {
             margin-bottom: 2em;
@@ -51,7 +51,11 @@
          data-require="emby-input,emby-button,emby-select">
         <div data-role="content">
             <div class="content-primary">
-                <h2>PDF Cover Settings</h2>
+                <h2>Book Cover Settings</h2>
+                <p style="color: var(--theme-text-secondary, #999); margin-bottom: 1.5em;">
+                    Fallback cover provider for books. Extracts PDF first pages via pdftoppm,
+                    and for EPUBs searches the archive for cover images when the Bookshelf plugin cannot find one.
+                </p>
 
                 <div id="statusBox" class="status-box" style="display:none;"></div>
 
