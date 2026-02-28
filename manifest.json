@@ -9,20 +9,12 @@
     "imageUrl": "",
     "versions": [
       {
-        "version": "2.0.0.0",
-        "changelog": "See https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/tag/v2.0.0.0",
+        "version": "3.0.0.0",
+        "changelog": "See https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/tag/v3.0.0.0",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/download/v2.0.0.0/book-cover.zip",
-        "checksum": "",
-        "timestamp": "2026-02-28T16:00:00Z"
-      },
-      {
-        "version": "1.0.0.0",
-        "changelog": "See https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/tag/v1.0.0.0",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/download/v1.0.0.0/pdf-cover.zip",
-        "checksum": "3781792dcd1d8241433f354457913b22798e290a4ca260c99d2230fbe7fd6351",
-        "timestamp": "2026-02-26T14:13:03Z"
+        "sourceUrl": "https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/download/v3.0.0.0/book-cover.zip",
+        "checksum": "95c9a1b6e6d47cde504569d8ea9a74afea8ee6b95d3bf07445e90bda4c083efa",
+        "timestamp": "2026-02-28T21:30:27Z"
       }
     ]
   }
