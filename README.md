@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Fallback cover extraction for Jellyfin books and audiobooks</strong>
+  <strong>Cover extraction for Jellyfin books and audiobooks, with online fallback</strong>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
 
 ---
 
-A Jellyfin plugin that provides **fallback cover-image extraction** for book and audiobook libraries. It works alongside the official [Bookshelf plugin](https://github.com/jellyfin/jellyfin-plugin-bookshelf) as a safety net: when built-in providers fail to find a cover -- or crash on mislabeled embedded art -- Book Cover steps in.
+A Jellyfin plugin that provides **cover-image extraction** for book and audiobook libraries. It works alongside the official [Bookshelf plugin](https://github.com/jellyfin/jellyfin-plugin-bookshelf) as a safety net: when built-in providers fail to find a cover -- or crash on mislabeled embedded art -- Book Cover steps in. As a final fallback, it can search **Open Library** and **Google Books** for cover images automatically.
 
 ## Supported Formats
 
@@ -32,6 +32,7 @@ A Jellyfin plugin that provides **fallback cover-image extraction** for book and
 | AAC | Audiobook | Embedded art via `ffmpeg` raw stream copy |
 | WAV | Audiobook | Embedded art via `ffmpeg` raw stream copy |
 | Folder | Audiobook | Sidecar image lookup, then first-file embedded art |
+| Any | Book / Audiobook | Online fallback via Open Library and Google Books |
 
 ## How It Works
 
@@ -69,6 +70,18 @@ For multi-file audiobooks stored as a directory of chapter files, the plugin:
 1. Checks for sidecar images in the folder (`cover.jpg`, `folder.jpg`, `front.jpg`, `poster.jpg`, `thumb.jpg`).
 2. Falls back to extracting embedded art from the first audio file in the directory.
 
+### Online Cover Fetching (Last Resort)
+
+When all local extraction methods fail, the plugin can search online sources for a matching cover:
+
+1. **Open Library** (openlibrary.org) -- searched first, using title and author metadata.
+2. **Google Books** (books.google.com) -- searched as a fallback, preferring the highest-resolution image available.
+3. If author-qualified search finds nothing, a title-only retry is attempted on Open Library.
+
+The plugin parses clean titles and authors from item metadata, stripping common audiobook filename noise (format tags like `(Mp3)`, locale tags like `[Castellano]`, Audible codes, year suffixes, and series indicators). No API keys are required. Fetched covers are cached by Jellyfin after the first scan, so online lookups only happen once per item.
+
+This feature is **enabled by default** and can be toggled in the plugin settings.
+
 ## Installation
 
 ### From Releases
@@ -76,7 +89,7 @@ For multi-file audiobooks stored as a directory of chapter files, the plugin:
 1. Download `book-cover.zip` from the [latest release](https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/latest).
 2. Extract `Jellyfin.Plugin.PdfCover.dll` into your Jellyfin plugins directory:
    ```
-   <jellyfin-config>/plugins/PdfCover_3.0.0.0/Jellyfin.Plugin.PdfCover.dll
+   <jellyfin-config>/plugins/PdfCover_4.0.0.0/Jellyfin.Plugin.PdfCover.dll
    ```
 3. Restart Jellyfin.
 
@@ -132,6 +145,7 @@ After installation, configure the plugin in **Dashboard > Plugins > Book Cover**
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| Online Cover Fetching | Enabled | Search Open Library and Google Books when local extraction fails. No API key needed. |
 | DPI | 150 | Resolution for PDF first-page rendering. Higher values produce sharper covers at the cost of speed. |
 | JPEG Quality | 85 | Output compression level (1--100). Lower values produce smaller files. |
 | Timeout | 30 s | Maximum time allowed per extraction. Applies to both `pdftoppm` and `ffmpeg`. |
@@ -166,6 +180,11 @@ For the plugin to run during library scans, it must be enabled in each library's
 
 **Extracted cover looks corrupted**
 - This is rare but can happen if the embedded art stream contains unusual padding. Open an issue with the file format details and the Jellyfin log output.
+
+**Online covers are not being fetched**
+- Check that "Enable online cover fetching" is toggled on in the plugin settings.
+- Verify the Jellyfin server has outbound internet access (the plugin queries `openlibrary.org` and `googleapis.com`).
+- Items that already have a cover from a higher-priority provider will not trigger online fetching. Delete the existing cover and rescan to force it.
 
 ## License
 
