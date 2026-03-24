@@ -45,7 +45,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 EmbeddedResourcePath = string.Format(
                     CultureInfo.InvariantCulture,
                     "{0}.Configuration.configPage.html",
-                    GetType().Namespace)
+                    GetType().Namespace),
+                MenuSection = "server",
+                MenuIcon = "book",
+                DisplayName = "Book Cover"
             }
         ];
     }
