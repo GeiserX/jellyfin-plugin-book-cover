@@ -43,7 +43,52 @@
             font-size: 0.95em;
         }
         .status-ok { background: #1b3a1b; border: 1px solid #2d6a2d; }
+        .status-warn { background: #3a3a1b; border: 1px solid #6a6a2d; }
         .status-err { background: #3a1b1b; border: 1px solid #6a2d2d; }
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 0.8em;
+            margin-bottom: 1em;
+        }
+        .toggle-group label {
+            font-weight: bold;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #555;
+            border-radius: 24px;
+            transition: background 0.2s;
+        }
+        .toggle-slider::before {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background: #52b54b;
+        }
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(20px);
+        }
     </style>
 </head>
 <body>
@@ -61,8 +106,28 @@
 
                 <div id="statusPdftoppm" class="status-box" style="display:none;"></div>
                 <div id="statusFfmpeg" class="status-box" style="display:none;"></div>
+                <div id="statusOnline" class="status-box" style="display:none;"></div>
 
                 <form id="PdfCoverConfigForm">
+                    <div class="config-section">
+                        <h3>Online Cover Fetching</h3>
+                        <p style="color: var(--theme-text-secondary, #999); margin-bottom: 1em;">
+                            When local cover extraction fails (no embedded art, no sidecar image),
+                            search Open Library and Google Books for a cover image.
+                        </p>
+                        <div class="toggle-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="chkOnlineFetch" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <label for="chkOnlineFetch">Enable online cover fetching</label>
+                        </div>
+                        <div class="helper-text" style="margin-bottom: 0;">
+                            Sources: Open Library (openlibrary.org) &rarr; Google Books (books.google.com).
+                            No API key required. Covers are cached by Jellyfin after first fetch.
+                        </div>
+                    </div>
+
                     <div class="config-section">
                         <h3>Rendering</h3>
 
@@ -114,6 +179,7 @@
                     document.querySelector('#txtDpi').value = config.Dpi || 150;
                     document.querySelector('#txtJpegQuality').value = config.JpegQuality || 85;
                     document.querySelector('#txtTimeout').value = config.TimeoutSeconds || 30;
+                    document.querySelector('#chkOnlineFetch').checked = config.EnableOnlineCoverFetch !== false;
                     Dashboard.hideLoadingMsg();
 
                     ApiClient.getJSON(ApiClient.getUrl('PdfCover/Status')).then(function (status) {
@@ -136,6 +202,16 @@
                             ffBox.className = 'status-box status-err';
                             ffBox.innerHTML = '&#10007; ffmpeg not found. Audio cover extraction disabled.';
                         }
+
+                        var onlineBox = document.querySelector('#statusOnline');
+                        onlineBox.style.display = 'block';
+                        if (status.OnlineCoverFetchEnabled) {
+                            onlineBox.className = 'status-box status-ok';
+                            onlineBox.innerHTML = '&#10003; Online cover fetching enabled &mdash; Open Library + Google Books as fallback.';
+                        } else {
+                            onlineBox.className = 'status-box status-warn';
+                            onlineBox.innerHTML = '&#9888; Online cover fetching disabled. Enable it above to auto-fetch missing covers.';
+                        }
                     }).catch(function () {
                         // Endpoint might not exist yet, ignore
                     });
@@ -150,6 +226,7 @@
                     config.Dpi = parseInt(document.querySelector('#txtDpi').value, 10) || 150;
                     config.JpegQuality = parseInt(document.querySelector('#txtJpegQuality').value, 10) || 85;
                     config.TimeoutSeconds = parseInt(document.querySelector('#txtTimeout').value, 10) || 30;
+                    config.EnableOnlineCoverFetch = document.querySelector('#chkOnlineFetch').checked;
                     ApiClient.updatePluginConfiguration(PdfCoverConfig.pluginId, config).then(function () {
                         Dashboard.processPluginConfigurationUpdateResult();
                     });

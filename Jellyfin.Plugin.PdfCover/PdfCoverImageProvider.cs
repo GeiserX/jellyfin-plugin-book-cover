@@ -34,6 +34,7 @@ public class PdfCoverImageProvider : IDynamicImageProvider
     };
 
     private readonly ILogger<PdfCoverImageProvider> _logger;
+    private readonly OnlineCoverFetcher _onlineFetcher;
     private bool? _pdftoppmAvailable;
     private string? _ffmpegPath;
     private bool _ffmpegChecked;
@@ -41,9 +42,10 @@ public class PdfCoverImageProvider : IDynamicImageProvider
     /// <summary>
     /// Initializes a new instance of the <see cref="PdfCoverImageProvider"/> class.
     /// </summary>
-    public PdfCoverImageProvider(ILogger<PdfCoverImageProvider> logger)
+    public PdfCoverImageProvider(ILogger<PdfCoverImageProvider> logger, OnlineCoverFetcher onlineFetcher)
     {
         _logger = logger;
+        _onlineFetcher = onlineFetcher;
     }
 
     /// <inheritdoc />
@@ -63,36 +65,50 @@ public class PdfCoverImageProvider : IDynamicImageProvider
     {
         var path = item.Path;
 
+        if (string.IsNullOrEmpty(path))
+        {
+            return await GetOnlineCover(item, cancellationToken).ConfigureAwait(false);
+        }
+
+        DynamicImageResponse result;
+
         if (Directory.Exists(path))
         {
-            return await GetFolderAudioCover(path, cancellationToken).ConfigureAwait(false);
+            result = await GetFolderAudioCover(path, cancellationToken).ConfigureAwait(false);
         }
-
-        var ext = Path.GetExtension(path);
-
-        if (string.Equals(ext, ".epub", StringComparison.OrdinalIgnoreCase))
+        else
         {
-            return await GetEpubCover(path, cancellationToken).ConfigureAwait(false);
-        }
+            var ext = Path.GetExtension(path);
 
-        if (string.Equals(ext, ".pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            return await GetPdfCover(path, cancellationToken).ConfigureAwait(false);
-        }
-
-        if (AudioExtensions.Contains(ext))
-        {
-            var result = await GetAudioCover(path, cancellationToken).ConfigureAwait(false);
-            if (result.HasImage)
+            if (string.Equals(ext, ".epub", StringComparison.OrdinalIgnoreCase))
             {
-                return result;
+                result = await GetEpubCover(path, cancellationToken).ConfigureAwait(false);
             }
-
-            // Fallback: check for sidecar image (same name.jpg, cover.jpg, folder.jpg)
-            return await GetSidecarImage(path, cancellationToken).ConfigureAwait(false);
+            else if (string.Equals(ext, ".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                result = await GetPdfCover(path, cancellationToken).ConfigureAwait(false);
+            }
+            else if (AudioExtensions.Contains(ext))
+            {
+                result = await GetAudioCover(path, cancellationToken).ConfigureAwait(false);
+                if (!result.HasImage)
+                {
+                    result = await GetSidecarImage(path, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                result = new DynamicImageResponse { HasImage = false };
+            }
         }
 
-        return new DynamicImageResponse { HasImage = false };
+        // Final fallback: fetch cover from online sources
+        if (!result.HasImage)
+        {
+            result = await GetOnlineCover(item, cancellationToken).ConfigureAwait(false);
+        }
+
+        return result;
     }
 
     private async Task<DynamicImageResponse> GetEpubCover(string path, CancellationToken cancellationToken)
@@ -590,13 +606,52 @@ public class PdfCoverImageProvider : IDynamicImageProvider
         return new DynamicImageResponse { HasImage = false };
     }
 
+    private async Task<DynamicImageResponse> GetOnlineCover(BaseItem item, CancellationToken cancellationToken)
+    {
+        var config = Plugin.Instance?.Configuration;
+        if (config?.EnableOnlineCoverFetch != true)
+        {
+            return new DynamicImageResponse { HasImage = false };
+        }
+
+        try
+        {
+            var (title, author) = OnlineCoverFetcher.ParseBookInfo(item);
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return new DynamicImageResponse { HasImage = false };
+            }
+
+            _logger.LogDebug("Attempting online cover fetch for: '{Title}' by '{Author}'", title, author ?? "(unknown)");
+
+            var cover = await _onlineFetcher.FetchCoverAsync(title, author, cancellationToken).ConfigureAwait(false);
+            if (cover == null)
+            {
+                _logger.LogDebug("No online cover found for '{Title}'", title);
+                return new DynamicImageResponse { HasImage = false };
+            }
+
+            return new DynamicImageResponse
+            {
+                HasImage = true,
+                Stream = cover.Value.Stream,
+                Format = cover.Value.Format
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Online cover fetch failed for '{Name}'", item.Name);
+            return new DynamicImageResponse { HasImage = false };
+        }
+    }
+
     /// <summary>
     /// Detects the actual image format from magic bytes, ignoring file
     /// extensions or codec tags which may be incorrect. Scans past any
     /// leading null/padding bytes that raw stream copy may include.
     /// </summary>
     /// <returns>Tuple of (format, byte offset where the image header starts).</returns>
-    private static (ImageFormat? Format, int Offset) DetectImageFormat(byte[] data)
+    internal static (ImageFormat? Format, int Offset) DetectImageFormat(byte[] data)
     {
         if (data.Length < 4)
         {

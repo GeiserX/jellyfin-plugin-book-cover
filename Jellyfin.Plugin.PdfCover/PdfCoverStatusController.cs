@@ -34,7 +34,8 @@ public class PdfCoverStatusController : ControllerBase
         return new PdfCoverStatus
         {
             PdftoppmAvailable = _provider.IsPdftoppmAvailable(),
-            FfmpegAvailable = _provider.GetFfmpegPath() != null
+            FfmpegAvailable = _provider.GetFfmpegPath() != null,
+            OnlineCoverFetchEnabled = Plugin.Instance?.Configuration?.EnableOnlineCoverFetch ?? true
         };
     }
 }
@@ -53,4 +54,9 @@ public class PdfCoverStatus
     /// Gets or sets a value indicating whether ffmpeg is available (audio covers).
     /// </summary>
     public bool FfmpegAvailable { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether online cover fetching is enabled.
+    /// </summary>
+    public bool OnlineCoverFetchEnabled { get; set; }
 }

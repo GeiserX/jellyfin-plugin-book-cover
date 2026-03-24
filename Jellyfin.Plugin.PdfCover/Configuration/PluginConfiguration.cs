@@ -22,4 +22,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the timeout in seconds for the pdftoppm process.
     /// </summary>
     public int TimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether online cover fetching is enabled.
+    /// When enabled, searches Open Library and Google Books for cover images
+    /// as a last resort when local extraction methods fail.
+    /// </summary>
+    public bool EnableOnlineCoverFetch { get; set; } = true;
 }
