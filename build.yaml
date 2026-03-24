@@ -1,24 +1,23 @@
 ---
-name: "Book Cover"
+name: "Jelly Covers"
 guid: "82eef869-3f18-4678-968d-06efc10b60cf"
-version: "4.0.1.0"
+version: "5.0.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Cover extraction for books (PDF, EPUB) and audiobooks, with online fallback via Open Library & Google Books"
+overview: "Cover extraction for books, audiobooks, comics, and music — with online fallback via Open Library & Google Books"
 description: >
-  Cover provider for Jellyfin book and audiobook libraries. Extracts PDF first pages
-  via pdftoppm, searches EPUB archives for cover images, and extracts embedded artwork
-  from audio files via ffmpeg. When local extraction fails, automatically fetches covers
-  from Open Library and Google Books as a last resort. Supports folder-based audiobooks,
+  Cover provider for Jellyfin libraries. Extracts PDF first pages via pdftoppm,
+  searches EPUB archives for cover images, and extracts embedded artwork from audio
+  files via ffmpeg. When local extraction fails, automatically fetches covers from
+  Open Library and Google Books as a last resort. Supports folder-based audiobooks,
   sidecar images, and handles mislabeled codec tags in ID3.
-category: "Books"
+category: "General"
 owner: "GeiserX"
 artifacts:
-  - "Jellyfin.Plugin.PdfCover.dll"
+  - "JellyCovers.dll"
 changelog: >
-  v4.0.0: Online cover fetching — automatically searches Open Library and Google Books
-  when no local cover is found (embedded art, sidecar image, or archive). Smart title/author
-  parsing handles common audiobook filename patterns. Configurable via plugin settings.
-  v3.0.0: Added audiobook cover extraction via ffmpeg. Raw stream copy bypasses
-  codec tag mismatches. Supports MP3, M4A, M4B, FLAC, OGG, and folder-based
-  audiobooks. Detects image format from magic bytes instead of trusting file tags.
+  v5.0.0: Renamed to Jelly Covers. New namespace, config page with native Jellyfin
+  components, per-library enable/disable toggle, dashboard sidebar entry. Backward
+  compatible with existing Book Cover library configurations.
+  v4.0.0: Online cover fetching via Open Library and Google Books.
+  v3.0.0: Audiobook cover extraction via ffmpeg raw stream copy.

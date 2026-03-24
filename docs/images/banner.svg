@@ -63,12 +63,12 @@
 
   <!-- Title text -->
   <text x="340" y="95" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="36" font-weight="700" fill="white" letter-spacing="-0.5">
-    jellyfin-plugin-book-cover
+    jelly-covers
   </text>
 
   <!-- Subtitle -->
   <text x="340" y="128" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="white" fill-opacity="0.85" font-weight="400">
-    Fallback cover extraction for Jellyfin books and audiobooks
+    Cover extraction for Jellyfin libraries with online fallback
   </text>
 
   <!-- Bottom tags -->

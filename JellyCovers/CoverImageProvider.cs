@@ -7,7 +7,7 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Net;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.PdfCover;
+namespace JellyCovers;
 
 /// <summary>
 /// Fallback cover provider for books and audiobooks. Handles PDFs (first page
@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.PdfCover;
 /// Acts as a safety net when built-in providers fail — particularly for audio
 /// files with mislabeled codec tags (e.g. JPEG data tagged as PNG in ID3).
 /// </summary>
-public class PdfCoverImageProvider : IDynamicImageProvider
+public class CoverImageProvider : IDynamicImageProvider
 {
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -33,23 +33,23 @@ public class PdfCoverImageProvider : IDynamicImageProvider
         ".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".opus", ".wma", ".aac", ".wav"
     };
 
-    private readonly ILogger<PdfCoverImageProvider> _logger;
+    private readonly ILogger<CoverImageProvider> _logger;
     private readonly OnlineCoverFetcher _onlineFetcher;
     private bool? _pdftoppmAvailable;
     private string? _ffmpegPath;
     private bool _ffmpegChecked;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PdfCoverImageProvider"/> class.
+    /// Initializes a new instance of the <see cref="CoverImageProvider"/> class.
     /// </summary>
-    public PdfCoverImageProvider(ILogger<PdfCoverImageProvider> logger, OnlineCoverFetcher onlineFetcher)
+    public CoverImageProvider(ILogger<CoverImageProvider> logger, OnlineCoverFetcher onlineFetcher)
     {
         _logger = logger;
         _onlineFetcher = onlineFetcher;
     }
 
     /// <inheritdoc />
-    public string Name => "Book Cover";
+    public string Name => "Jelly Covers";
 
     /// <inheritdoc />
     public bool Supports(BaseItem item) => item is Book || item is AudioBook;

@@ -3,22 +3,22 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Jellyfin.Plugin.PdfCover;
+namespace JellyCovers;
 
 /// <summary>
 /// API controller exposing tool availability status for the admin config page.
 /// </summary>
 [ApiController]
-[Route("PdfCover")]
+[Route("JellyCovers")]
 [Authorize(Policy = "RequiresElevation")]
-public class PdfCoverStatusController : ControllerBase
+public class CoverStatusController : ControllerBase
 {
-    private readonly PdfCoverImageProvider _provider;
+    private readonly CoverImageProvider _provider;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PdfCoverStatusController"/> class.
+    /// Initializes a new instance of the <see cref="CoverStatusController"/> class.
     /// </summary>
-    public PdfCoverStatusController(PdfCoverImageProvider provider)
+    public CoverStatusController(CoverImageProvider provider)
     {
         _provider = provider;
     }
@@ -29,9 +29,9 @@ public class PdfCoverStatusController : ControllerBase
     [HttpGet("Status")]
     [Produces(MediaTypeNames.Application.Json)]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<PdfCoverStatus> GetStatus()
+    public ActionResult<CoverStatus> GetStatus()
     {
-        return new PdfCoverStatus
+        return new CoverStatus
         {
             PdftoppmAvailable = _provider.IsPdftoppmAvailable(),
             FfmpegAvailable = _provider.GetFfmpegPath() != null,
@@ -43,15 +43,15 @@ public class PdfCoverStatusController : ControllerBase
 /// <summary>
 /// Status response indicating tool availability for cover extraction.
 /// </summary>
-public class PdfCoverStatus
+public class CoverStatus
 {
     /// <summary>
-    /// Gets or sets a value indicating whether pdftoppm is available (PDF covers).
+    /// Gets or sets a value indicating whether pdftoppm is available.
     /// </summary>
     public bool PdftoppmAvailable { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether ffmpeg is available (audio covers).
+    /// Gets or sets a value indicating whether ffmpeg is available.
     /// </summary>
     public bool FfmpegAvailable { get; set; }
 

@@ -1,15 +1,14 @@
 using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.PdfCover.Configuration;
+namespace JellyCovers.Configuration;
 
 /// <summary>
-/// Plugin configuration for PDF Cover extraction.
+/// Plugin configuration for cover extraction settings.
 /// </summary>
 public class PluginConfiguration : BasePluginConfiguration
 {
     /// <summary>
     /// Gets or sets the DPI used for rendering the PDF first page.
-    /// Higher values produce better quality but larger images.
     /// </summary>
     public int Dpi { get; set; } = 150;
 
@@ -25,8 +24,6 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Gets or sets a value indicating whether online cover fetching is enabled.
-    /// When enabled, searches Open Library and Google Books for cover images
-    /// as a last resort when local extraction methods fail.
     /// </summary>
     public bool EnableOnlineCoverFetch { get; set; } = true;
 }

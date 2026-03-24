@@ -21,23 +21,23 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore Jellyfin.Plugin.PdfCover/Jellyfin.Plugin.PdfCover.csproj
+        run: dotnet restore JellyCovers/JellyCovers.csproj
 
       - name: Build
-        run: dotnet build Jellyfin.Plugin.PdfCover/Jellyfin.Plugin.PdfCover.csproj -c Release --no-restore
+        run: dotnet build JellyCovers/JellyCovers.csproj -c Release --no-restore
 
       - name: Create plugin package
         run: |
           mkdir -p artifacts
-          cp Jellyfin.Plugin.PdfCover/bin/Release/net9.0/Jellyfin.Plugin.PdfCover.dll artifacts/
+          cp JellyCovers/bin/Release/net9.0/JellyCovers.dll artifacts/
           cp build.yaml artifacts/
-          cd artifacts && zip -r ../book-cover.zip .
+          cd artifacts && zip -r ../jelly-covers.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: book-cover-plugin
-          path: book-cover.zip
+          name: jelly-covers-plugin
+          path: jelly-covers.zip
 
   release:
     needs: build
@@ -53,7 +53,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: book-cover-plugin
+          name: jelly-covers-plugin
 
       - name: Extract version from tag
         id: version
@@ -62,36 +62,36 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Book Cover v${{ steps.version.outputs.VERSION }}
+          name: Jelly Covers v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: book-cover.zip
+          files: jelly-covers.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update manifest.json
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
-          CHECKSUM=$(sha256sum book-cover.zip | awk '{print $1}')
+          CHECKSUM=$(sha256sum jelly-covers.zip | awk '{print $1}')
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           cat > manifest.json << EOF
           [
             {
               "guid": "82eef869-3f18-4678-968d-06efc10b60cf",
-              "name": "Book Cover",
-              "overview": "Cover extraction for books (PDF, EPUB) and audiobooks, with online fallback via Open Library & Google Books.",
-              "description": "Cover provider for Jellyfin book and audiobook libraries. Extracts PDF first pages via pdftoppm, searches EPUB archives for cover images, and extracts embedded artwork from audio files via ffmpeg. When local extraction fails, automatically fetches covers from Open Library and Google Books as a last resort. Supports folder-based audiobooks, sidecar images, and handles mislabeled codec tags in ID3.",
+              "name": "Jelly Covers",
+              "overview": "Cover extraction for books, audiobooks, comics, and music — with online fallback via Open Library & Google Books.",
+              "description": "Cover provider for Jellyfin libraries. Extracts PDF first pages via pdftoppm, searches EPUB archives for cover images, and extracts embedded artwork from audio files via ffmpeg. When local extraction fails, automatically fetches covers from Open Library and Google Books as a last resort.",
               "owner": "GeiserX",
-              "category": "Books",
+              "category": "General",
               "imageUrl": "",
               "versions": [
                 {
                   "version": "${VERSION}",
-                  "changelog": "See https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/tag/v${VERSION}",
+                  "changelog": "See https://github.com/GeiserX/jelly-covers/releases/tag/v${VERSION}",
                   "targetAbi": "10.11.0.0",
-                  "sourceUrl": "https://github.com/GeiserX/jellyfin-plugin-book-cover/releases/download/v${VERSION}/book-cover.zip",
+                  "sourceUrl": "https://github.com/GeiserX/jelly-covers/releases/download/v${VERSION}/jelly-covers.zip",
                   "checksum": "${CHECKSUM}",
                   "timestamp": "${TIMESTAMP}"
                 }

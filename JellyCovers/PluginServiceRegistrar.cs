@@ -2,10 +2,10 @@ using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Jellyfin.Plugin.PdfCover;
+namespace JellyCovers;
 
 /// <summary>
-/// Registers the PdfCoverImageProvider as a singleton so it can be injected into the status controller.
+/// Registers plugin services for dependency injection.
 /// </summary>
 public class PluginServiceRegistrar : IPluginServiceRegistrator
 {
@@ -13,6 +13,6 @@ public class PluginServiceRegistrar : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<OnlineCoverFetcher>();
-        serviceCollection.AddSingleton<PdfCoverImageProvider>();
+        serviceCollection.AddSingleton<CoverImageProvider>();
     }
 }

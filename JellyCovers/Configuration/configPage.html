@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Book Cover</title>
+    <title>Jelly Covers</title>
 </head>
 <body>
-    <div data-role="page" class="page type-interior pluginConfigurationPage" data-name="bookCoverConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div data-role="page" class="page type-interior pluginConfigurationPage" data-name="jellyCoversConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
         <div data-role="content">
             <div class="content-primary">
-                <h1>Book Cover</h1>
+                <h1>Jelly Covers</h1>
 
                 <div id="statusSection"></div>
 
-                <form class="bookCoverConfigForm">
+                <form class="jellyCoversConfigForm">
                     <h2>Online Cover Fetching</h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -53,7 +53,7 @@
 
                 <br />
                 <h2>Libraries</h2>
-                <p>Enable or disable Book Cover as an image fetcher per library.</p>
+                <p>Enable or disable Jelly Covers as an image fetcher per library.</p>
 
                 <table class="tblLibraryStatus" style="width: 100%;">
                     <thead>
@@ -71,11 +71,13 @@
         </div>
 
         <script type="text/javascript">
-            var BookCoverConfig = {
+            var JellyCoversConfig = {
                 pluginId: '82eef869-3f18-4678-968d-06efc10b60cf',
+                providerName: 'Jelly Covers',
+                legacyName: 'Book Cover',
 
                 loadConfiguration: function (page) {
-                    ApiClient.getPluginConfiguration(BookCoverConfig.pluginId).then(function (config) {
+                    ApiClient.getPluginConfiguration(JellyCoversConfig.pluginId).then(function (config) {
                         if (config) {
                             page.querySelector('#chkOnlineFetch').checked = config.EnableOnlineCoverFetch !== false;
                             page.querySelector('#txtDpi').value = config.Dpi || 150;
@@ -84,17 +86,17 @@
                         }
                     });
 
-                    BookCoverConfig.loadStatus();
-                    BookCoverConfig.loadLibraries();
+                    JellyCoversConfig.loadStatus();
+                    JellyCoversConfig.loadLibraries();
                 },
 
                 saveConfiguration: function (page) {
-                    ApiClient.getPluginConfiguration(BookCoverConfig.pluginId).then(function (config) {
+                    ApiClient.getPluginConfiguration(JellyCoversConfig.pluginId).then(function (config) {
                         config.EnableOnlineCoverFetch = page.querySelector('#chkOnlineFetch').checked;
                         config.Dpi = parseInt(page.querySelector('#txtDpi').value, 10) || 150;
                         config.JpegQuality = parseInt(page.querySelector('#txtJpegQuality').value, 10) || 85;
                         config.TimeoutSeconds = parseInt(page.querySelector('#txtTimeout').value, 10) || 30;
-                        ApiClient.updatePluginConfiguration(BookCoverConfig.pluginId, config).then(function (result) {
+                        ApiClient.updatePluginConfiguration(JellyCoversConfig.pluginId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
                     });
@@ -102,7 +104,7 @@
 
                 loadStatus: function () {
                     var section = document.querySelector('#statusSection');
-                    ApiClient.getJSON(ApiClient.getUrl('PdfCover/Status')).then(function (status) {
+                    ApiClient.getJSON(ApiClient.getUrl('JellyCovers/Status')).then(function (status) {
                         var lines = [];
 
                         if (status.PdftoppmAvailable) {
@@ -129,7 +131,6 @@
                     });
                 },
 
-                // Map collection types to the item types Book Cover supports
                 typeMap: {
                     'books': ['Book', 'AudioBook'],
                     'music': ['Audio'],
@@ -146,7 +147,7 @@
 
                     ApiClient.getJSON(ApiClient.getUrl('Library/VirtualFolders')).then(function (folders) {
                         tbody.innerHTML = '';
-                        BookCoverConfig.libraryCache = {};
+                        JellyCoversConfig.libraryCache = {};
 
                         if (!folders || folders.length === 0) {
                             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2em;opacity:0.7;">No libraries found.</td></tr>';
@@ -155,7 +156,7 @@
 
                         var relevant = folders.filter(function (f) {
                             var ct = (f.CollectionType || '').toLowerCase();
-                            return ct in BookCoverConfig.typeMap;
+                            return ct in JellyCoversConfig.typeMap;
                         });
 
                         if (relevant.length === 0) {
@@ -163,9 +164,9 @@
                         }
 
                         relevant.forEach(function (lib) {
-                            BookCoverConfig.libraryCache[lib.ItemId] = lib;
+                            JellyCoversConfig.libraryCache[lib.ItemId] = lib;
                             var row = document.createElement('tr');
-                            var hasBookCover = BookCoverConfig.isEnabled(lib);
+                            var enabled = JellyCoversConfig.isEnabled(lib);
 
                             var nameCell = document.createElement('td');
                             nameCell.textContent = lib.Name;
@@ -176,7 +177,7 @@
                             var statusCell = document.createElement('td');
                             statusCell.style.textAlign = 'center';
                             statusCell.id = 'status_' + lib.ItemId;
-                            statusCell.innerHTML = hasBookCover
+                            statusCell.innerHTML = enabled
                                 ? '<span style="color:#52B54B;">&#10003; Enabled</span>'
                                 : '<span style="opacity:0.5;">&#10005; Disabled</span>';
 
@@ -188,9 +189,9 @@
                             toggleBtn.setAttribute('is', 'emby-button');
                             toggleBtn.className = 'raised';
                             toggleBtn.id = 'toggleBtn_' + lib.ItemId;
-                            toggleBtn.innerHTML = hasBookCover ? '<span>Disable</span>' : '<span>Enable</span>';
+                            toggleBtn.innerHTML = enabled ? '<span>Disable</span>' : '<span>Enable</span>';
                             toggleBtn.onclick = (function (id) {
-                                return function () { BookCoverConfig.toggleLibrary(id, !BookCoverConfig.isEnabled(BookCoverConfig.libraryCache[id])); };
+                                return function () { JellyCoversConfig.toggleLibrary(id, !JellyCoversConfig.isEnabled(JellyCoversConfig.libraryCache[id])); };
                             })(lib.ItemId);
                             actionsCell.appendChild(toggleBtn);
 
@@ -198,7 +199,7 @@
                             scanBtn.setAttribute('is', 'emby-button');
                             scanBtn.className = 'raised';
                             scanBtn.innerHTML = '<span>Refresh Images</span>';
-                            scanBtn.style.display = hasBookCover ? '' : 'none';
+                            scanBtn.style.display = enabled ? '' : 'none';
                             scanBtn.style.marginLeft = '0.5em';
                             scanBtn.id = 'scanBtn_' + lib.ItemId;
                             scanBtn.onclick = (function (id, name) {
@@ -233,7 +234,7 @@
                             tbody.appendChild(row);
                         });
                     }).catch(function (error) {
-                        console.error('BookCover: error loading libraries', error);
+                        console.error('JellyCovers: error loading libraries', error);
                         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2em;color:#CC7B19;">Error loading libraries.</td></tr>';
                     });
                 },
@@ -241,15 +242,17 @@
                 isEnabled: function (lib) {
                     var typeOptions = lib.LibraryOptions && lib.LibraryOptions.TypeOptions;
                     if (!typeOptions || !Array.isArray(typeOptions)) return false;
+                    var name = JellyCoversConfig.providerName;
+                    var legacy = JellyCoversConfig.legacyName;
                     for (var i = 0; i < typeOptions.length; i++) {
                         var fetchers = typeOptions[i].ImageFetchers || [];
-                        if (fetchers.indexOf('Book Cover') !== -1) return true;
+                        if (fetchers.indexOf(name) !== -1 || fetchers.indexOf(legacy) !== -1) return true;
                     }
                     return false;
                 },
 
                 toggleLibrary: function (libraryId, enable) {
-                    var lib = BookCoverConfig.libraryCache[libraryId];
+                    var lib = JellyCoversConfig.libraryCache[libraryId];
                     if (!lib) return;
 
                     var toggleBtn = document.querySelector('#toggleBtn_' + libraryId);
@@ -259,7 +262,9 @@
                     if (!opts.TypeOptions) opts.TypeOptions = [];
 
                     var ct = (lib.CollectionType || '').toLowerCase();
-                    var itemTypes = BookCoverConfig.typeMap[ct] || ['Book', 'AudioBook'];
+                    var itemTypes = JellyCoversConfig.typeMap[ct] || ['Book', 'AudioBook'];
+                    var name = JellyCoversConfig.providerName;
+                    var legacy = JellyCoversConfig.legacyName;
 
                     itemTypes.forEach(function (itemType) {
                         var found = false;
@@ -268,13 +273,20 @@
                                 found = true;
                                 if (!to.ImageFetchers) to.ImageFetchers = [];
                                 if (!to.ImageFetcherOrder) to.ImageFetcherOrder = [];
-                                var idx = to.ImageFetchers.indexOf('Book Cover');
+
+                                // Remove legacy name if present
+                                var legacyIdx = to.ImageFetchers.indexOf(legacy);
+                                if (legacyIdx !== -1) to.ImageFetchers.splice(legacyIdx, 1);
+                                var legacyOrderIdx = to.ImageFetcherOrder.indexOf(legacy);
+                                if (legacyOrderIdx !== -1) to.ImageFetcherOrder.splice(legacyOrderIdx, 1);
+
+                                var idx = to.ImageFetchers.indexOf(name);
                                 if (enable && idx === -1) {
-                                    to.ImageFetchers.push('Book Cover');
-                                    to.ImageFetcherOrder.push('Book Cover');
+                                    to.ImageFetchers.push(name);
+                                    to.ImageFetcherOrder.push(name);
                                 } else if (!enable && idx !== -1) {
                                     to.ImageFetchers.splice(idx, 1);
-                                    var orderIdx = to.ImageFetcherOrder.indexOf('Book Cover');
+                                    var orderIdx = to.ImageFetcherOrder.indexOf(name);
                                     if (orderIdx !== -1) to.ImageFetcherOrder.splice(orderIdx, 1);
                                 }
                             }
@@ -283,8 +295,8 @@
                         if (!found && enable) {
                             opts.TypeOptions.push({
                                 Type: itemType,
-                                ImageFetchers: ['Book Cover'],
-                                ImageFetcherOrder: ['Book Cover']
+                                ImageFetchers: [name],
+                                ImageFetcherOrder: [name]
                             });
                         }
                     });
@@ -310,9 +322,9 @@
                         var scanBtn = document.querySelector('#scanBtn_' + libraryId);
                         if (scanBtn) scanBtn.style.display = enable ? '' : 'none';
 
-                        Dashboard.alert('Book Cover ' + (enable ? 'enabled' : 'disabled') + ' for "' + lib.Name + '".');
+                        Dashboard.alert('Jelly Covers ' + (enable ? 'enabled' : 'disabled') + ' for "' + lib.Name + '".');
                     }).catch(function (error) {
-                        console.error('BookCover: error toggling library', error);
+                        console.error('JellyCovers: error toggling library', error);
                         if (toggleBtn) {
                             toggleBtn.disabled = false;
                             toggleBtn.innerHTML = enable ? '<span>Enable</span>' : '<span>Disable</span>';
@@ -323,12 +335,12 @@
             };
 
             document.querySelector('[data-role="page"]').addEventListener('pageshow', function () {
-                BookCoverConfig.loadConfiguration(this);
+                JellyCoversConfig.loadConfiguration(this);
             });
 
-            document.querySelector('.bookCoverConfigForm').addEventListener('submit', function (e) {
+            document.querySelector('.jellyCoversConfigForm').addEventListener('submit', function (e) {
                 e.preventDefault();
-                BookCoverConfig.saveConfiguration(this.closest('[data-role="page"]'));
+                JellyCoversConfig.saveConfiguration(this.closest('[data-role="page"]'));
                 return false;
             });
         </script>

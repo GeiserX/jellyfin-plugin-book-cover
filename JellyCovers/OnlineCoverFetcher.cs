@@ -5,7 +5,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.Drawing;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.PdfCover;
+namespace JellyCovers;
 
 /// <summary>
 /// Fetches book/audiobook covers from online sources (Open Library, Google Books)
@@ -68,7 +68,7 @@ public class OnlineCoverFetcher
             Timeout = TimeSpan.FromSeconds(15)
         };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "JellyfinBookCoverPlugin/4.0 (https://github.com/GeiserX/jellyfin-plugin-book-cover)");
+            "JellyCovers/5.0 (https://github.com/GeiserX/jelly-covers)");
         return client;
     }
 
@@ -308,7 +308,7 @@ public class OnlineCoverFetcher
             return null;
         }
 
-        var (format, offset) = PdfCoverImageProvider.DetectImageFormat(data);
+        var (format, offset) = CoverImageProvider.DetectImageFormat(data);
         if (format == null)
         {
             _logger.LogDebug("{Source}: unrecognized image format, skipping", source);

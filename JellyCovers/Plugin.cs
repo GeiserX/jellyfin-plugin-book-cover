@@ -1,16 +1,15 @@
 using System.Globalization;
-using Jellyfin.Plugin.PdfCover.Configuration;
+using JellyCovers.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
-namespace Jellyfin.Plugin.PdfCover;
+namespace JellyCovers;
 
 /// <summary>
-/// Fallback cover provider for Jellyfin book and audiobook libraries. Extracts
-/// PDF first pages via pdftoppm, searches EPUB archives for cover images, and
-/// extracts embedded artwork from audio files via ffmpeg raw stream copy.
+/// Cover provider for Jellyfin libraries. Extracts covers from PDFs, EPUBs,
+/// audio files, and fetches from online sources as a last resort.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
@@ -24,7 +23,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <inheritdoc />
-    public override string Name => "Book Cover";
+    public override string Name => "Jelly Covers";
 
     /// <inheritdoc />
     public override Guid Id => Guid.Parse("82eef869-3f18-4678-968d-06efc10b60cf");
