@@ -52,15 +52,15 @@
                 </form>
 
                 <br />
-                <h2>Library Status</h2>
-                <p>Libraries with Book Cover enabled as an image fetcher. To enable it for a library, go to <strong>Dashboard &rarr; Libraries &rarr; [Library] &rarr; Image Fetchers</strong>.</p>
+                <h2>Libraries</h2>
+                <p>Enable or disable Book Cover as an image fetcher per library.</p>
 
                 <table class="tblLibraryStatus" style="width: 100%;">
                     <thead>
                         <tr>
                             <th style="text-align: left;">Library</th>
                             <th style="text-align: left;">Type</th>
-                            <th style="text-align: center;">Book Cover Enabled</th>
+                            <th style="text-align: center;">Enabled</th>
                             <th style="text-align: right;">Actions</th>
                         </tr>
                     </thead>
@@ -129,12 +129,24 @@
                     });
                 },
 
+                // Map collection types to the item types Book Cover supports
+                typeMap: {
+                    'books': ['Book', 'AudioBook'],
+                    'music': ['Audio'],
+                    'audiobooks': ['AudioBook'],
+                    '': ['Book', 'AudioBook', 'Audio'],
+                    'mixed': ['Book', 'AudioBook', 'Audio']
+                },
+
+                libraryCache: {},
+
                 loadLibraries: function () {
                     var tbody = document.querySelector('#libraryTableBody');
                     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2em;">Loading libraries...</td></tr>';
 
                     ApiClient.getJSON(ApiClient.getUrl('Library/VirtualFolders')).then(function (folders) {
                         tbody.innerHTML = '';
+                        BookCoverConfig.libraryCache = {};
 
                         if (!folders || folders.length === 0) {
                             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2em;opacity:0.7;">No libraries found.</td></tr>';
@@ -143,7 +155,7 @@
 
                         var relevant = folders.filter(function (f) {
                             var ct = (f.CollectionType || '').toLowerCase();
-                            return ct === 'books' || ct === 'music' || ct === 'audiobooks' || ct === '' || ct === 'mixed';
+                            return ct in BookCoverConfig.typeMap;
                         });
 
                         if (relevant.length === 0) {
@@ -151,6 +163,7 @@
                         }
 
                         relevant.forEach(function (lib) {
+                            BookCoverConfig.libraryCache[lib.ItemId] = lib;
                             var row = document.createElement('tr');
 
                             var nameCell = document.createElement('td');
@@ -162,55 +175,51 @@
                             var statusCell = document.createElement('td');
                             statusCell.style.textAlign = 'center';
 
-                            var fetchers = lib.LibraryOptions && lib.LibraryOptions.TypeOptions;
-                            var hasBookCover = false;
+                            var hasBookCover = BookCoverConfig.isEnabled(lib);
 
-                            if (fetchers && Array.isArray(fetchers)) {
-                                fetchers.forEach(function (typeOpt) {
-                                    var imageFetchers = typeOpt.ImageFetchers || [];
-                                    if (imageFetchers.indexOf('Book Cover') !== -1) {
-                                        hasBookCover = true;
-                                    }
-                                });
-                            }
-
-                            statusCell.innerHTML = hasBookCover
-                                ? '<span style="color:#52B54B;" title="Enabled">&#10003; Enabled</span>'
-                                : '<span style="opacity:0.5;" title="Not configured">&#10005; Not enabled</span>';
+                            var chk = document.createElement('input');
+                            chk.setAttribute('is', 'emby-checkbox');
+                            chk.type = 'checkbox';
+                            chk.checked = hasBookCover;
+                            chk.onchange = (function (id) {
+                                return function () { BookCoverConfig.toggleLibrary(id, this.checked, this); };
+                            })(lib.ItemId);
+                            statusCell.appendChild(chk);
 
                             var actionsCell = document.createElement('td');
                             actionsCell.style.textAlign = 'right';
+                            actionsCell.style.whiteSpace = 'nowrap';
 
-                            if (hasBookCover) {
-                                var scanBtn = document.createElement('button');
-                                scanBtn.setAttribute('is', 'emby-button');
-                                scanBtn.className = 'raised';
-                                scanBtn.innerHTML = '<span>Refresh Images</span>';
-                                scanBtn.onclick = (function (id, name) {
-                                    return function () {
-                                        this.disabled = true;
-                                        this.innerHTML = '<span>Scanning...</span>';
-                                        var btn = this;
-                                        ApiClient.ajax({
-                                            type: 'POST',
-                                            url: ApiClient.getUrl('Items/' + id + '/Refresh', {
-                                                Recursive: true,
-                                                ImageRefreshMode: 'FullRefresh',
-                                                ReplaceAllImages: false
-                                            })
-                                        }).then(function () {
-                                            btn.disabled = false;
-                                            btn.innerHTML = '<span>Refresh Images</span>';
-                                            Dashboard.alert('Image refresh started for "' + name + '".');
-                                        }).catch(function () {
-                                            btn.disabled = false;
-                                            btn.innerHTML = '<span>Refresh Images</span>';
-                                            Dashboard.alert('Error starting refresh. Check server logs.');
-                                        });
-                                    };
-                                })(lib.ItemId, lib.Name);
-                                actionsCell.appendChild(scanBtn);
-                            }
+                            var scanBtn = document.createElement('button');
+                            scanBtn.setAttribute('is', 'emby-button');
+                            scanBtn.className = 'raised';
+                            scanBtn.innerHTML = '<span>Refresh Images</span>';
+                            scanBtn.style.display = hasBookCover ? '' : 'none';
+                            scanBtn.id = 'scanBtn_' + lib.ItemId;
+                            scanBtn.onclick = (function (id, name) {
+                                return function () {
+                                    this.disabled = true;
+                                    this.innerHTML = '<span>Scanning...</span>';
+                                    var btn = this;
+                                    ApiClient.ajax({
+                                        type: 'POST',
+                                        url: ApiClient.getUrl('Items/' + id + '/Refresh', {
+                                            Recursive: true,
+                                            ImageRefreshMode: 'FullRefresh',
+                                            ReplaceAllImages: false
+                                        })
+                                    }).then(function () {
+                                        btn.disabled = false;
+                                        btn.innerHTML = '<span>Refresh Images</span>';
+                                        Dashboard.alert('Image refresh started for "' + name + '".');
+                                    }).catch(function () {
+                                        btn.disabled = false;
+                                        btn.innerHTML = '<span>Refresh Images</span>';
+                                        Dashboard.alert('Error starting refresh. Check server logs.');
+                                    });
+                                };
+                            })(lib.ItemId, lib.Name);
+                            actionsCell.appendChild(scanBtn);
 
                             row.appendChild(nameCell);
                             row.appendChild(typeCell);
@@ -221,6 +230,74 @@
                     }).catch(function (error) {
                         console.error('BookCover: error loading libraries', error);
                         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2em;color:#CC7B19;">Error loading libraries.</td></tr>';
+                    });
+                },
+
+                isEnabled: function (lib) {
+                    var typeOptions = lib.LibraryOptions && lib.LibraryOptions.TypeOptions;
+                    if (!typeOptions || !Array.isArray(typeOptions)) return false;
+                    for (var i = 0; i < typeOptions.length; i++) {
+                        var fetchers = typeOptions[i].ImageFetchers || [];
+                        if (fetchers.indexOf('Book Cover') !== -1) return true;
+                    }
+                    return false;
+                },
+
+                toggleLibrary: function (libraryId, enable, checkbox) {
+                    var lib = BookCoverConfig.libraryCache[libraryId];
+                    if (!lib) return;
+
+                    var opts = lib.LibraryOptions || {};
+                    if (!opts.TypeOptions) opts.TypeOptions = [];
+
+                    var ct = (lib.CollectionType || '').toLowerCase();
+                    var itemTypes = BookCoverConfig.typeMap[ct] || ['Book', 'AudioBook'];
+
+                    itemTypes.forEach(function (itemType) {
+                        var found = false;
+                        opts.TypeOptions.forEach(function (to) {
+                            if (to.Type === itemType) {
+                                found = true;
+                                if (!to.ImageFetchers) to.ImageFetchers = [];
+                                if (!to.ImageFetcherOrder) to.ImageFetcherOrder = [];
+                                var idx = to.ImageFetchers.indexOf('Book Cover');
+                                if (enable && idx === -1) {
+                                    to.ImageFetchers.push('Book Cover');
+                                    to.ImageFetcherOrder.push('Book Cover');
+                                } else if (!enable && idx !== -1) {
+                                    to.ImageFetchers.splice(idx, 1);
+                                    var orderIdx = to.ImageFetcherOrder.indexOf('Book Cover');
+                                    if (orderIdx !== -1) to.ImageFetcherOrder.splice(orderIdx, 1);
+                                }
+                            }
+                        });
+
+                        if (!found && enable) {
+                            opts.TypeOptions.push({
+                                Type: itemType,
+                                ImageFetchers: ['Book Cover'],
+                                ImageFetcherOrder: ['Book Cover']
+                            });
+                        }
+                    });
+
+                    checkbox.disabled = true;
+                    ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('Library/VirtualFolders/LibraryOptions'),
+                        data: JSON.stringify({ Id: libraryId, LibraryOptions: opts }),
+                        contentType: 'application/json'
+                    }).then(function () {
+                        checkbox.disabled = false;
+                        lib.LibraryOptions = opts;
+                        var scanBtn = document.querySelector('#scanBtn_' + libraryId);
+                        if (scanBtn) scanBtn.style.display = enable ? '' : 'none';
+                        Dashboard.alert('Book Cover ' + (enable ? 'enabled' : 'disabled') + ' for "' + lib.Name + '".');
+                    }).catch(function (error) {
+                        console.error('BookCover: error toggling library', error);
+                        checkbox.disabled = false;
+                        checkbox.checked = !enable;
+                        Dashboard.alert('Error updating library settings. Check server logs.');
                     });
                 }
             };
