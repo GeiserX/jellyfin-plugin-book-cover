@@ -238,13 +238,19 @@
                     });
                 },
 
+                legacyNames: ['Jelly Covers', 'Book Cover'],
+
                 isEnabled: function (lib) {
                     var typeOptions = lib.LibraryOptions && lib.LibraryOptions.TypeOptions;
                     if (!typeOptions || !Array.isArray(typeOptions)) return false;
                     var name = SmartCoversConfig.providerName;
+                    var legacy = SmartCoversConfig.legacyNames;
                     for (var i = 0; i < typeOptions.length; i++) {
                         var fetchers = typeOptions[i].ImageFetchers || [];
                         if (fetchers.indexOf(name) !== -1) return true;
+                        for (var j = 0; j < legacy.length; j++) {
+                            if (fetchers.indexOf(legacy[j]) !== -1) return true;
+                        }
                     }
                     return false;
                 },
@@ -263,6 +269,8 @@
                     var itemTypes = SmartCoversConfig.typeMap[ct] || ['Book', 'AudioBook'];
                     var name = SmartCoversConfig.providerName;
 
+                    var legacy = SmartCoversConfig.legacyNames;
+
                     itemTypes.forEach(function (itemType) {
                         var found = false;
                         opts.TypeOptions.forEach(function (to) {
@@ -270,6 +278,14 @@
                                 found = true;
                                 if (!to.ImageFetchers) to.ImageFetchers = [];
                                 if (!to.ImageFetcherOrder) to.ImageFetcherOrder = [];
+
+                                // Migrate legacy provider names to current name
+                                legacy.forEach(function (old) {
+                                    var li = to.ImageFetchers.indexOf(old);
+                                    if (li !== -1) to.ImageFetchers.splice(li, 1);
+                                    var oi = to.ImageFetcherOrder.indexOf(old);
+                                    if (oi !== -1) to.ImageFetcherOrder.splice(oi, 1);
+                                });
 
                                 var idx = to.ImageFetchers.indexOf(name);
                                 if (enable && idx === -1) {
