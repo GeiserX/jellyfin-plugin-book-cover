@@ -180,7 +180,7 @@ The plugin settings page includes a **Libraries** section where you can enable o
 
 | Project | Description |
 |---------|-------------|
-| [jelly-subtitles](https://github.com/GeiserX/jelly-subtitles) | Local AI-powered subtitle generation using Whisper |
+| [whisper-subs](https://github.com/GeiserX/whisper-subs) | Local AI-powered subtitle generation using Whisper |
 | [jellyfin-encoder](https://github.com/GeiserX/jellyfin-encoder) | Automatic 720p HEVC/AV1 transcoding with hardware acceleration |
 | [jellyfin-telegram-channel-sync](https://github.com/GeiserX/jellyfin-telegram-channel-sync) | Sync user access with Telegram channel membership |
 
