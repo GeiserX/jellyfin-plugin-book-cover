@@ -89,7 +89,7 @@ This feature is **enabled by default** and can be toggled in the plugin settings
 1. Download `smart-covers.zip` from the [latest release](https://github.com/GeiserX/smart-covers/releases/latest).
 2. Extract `SmartCovers.dll` into your Jellyfin plugins directory:
    ```
-   <jellyfin-config>/plugins/SmartCovers_5.0.0.0/SmartCovers.dll
+   <jellyfin-config>/plugins/SmartCovers_6.0.0.0/SmartCovers.dll
    ```
 3. Restart Jellyfin.
 
