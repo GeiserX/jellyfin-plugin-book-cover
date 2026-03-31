@@ -1,6 +1,6 @@
 using MediaBrowser.Model.Plugins;
 
-namespace JellyCovers.Configuration;
+namespace SmartCovers.Configuration;
 
 /// <summary>
 /// Plugin configuration for cover extraction settings.

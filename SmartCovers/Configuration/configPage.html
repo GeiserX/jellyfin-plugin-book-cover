@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Jelly Covers</title>
+    <title>SmartCovers</title>
 </head>
 <body>
-    <div data-role="page" class="page type-interior pluginConfigurationPage" data-name="jellyCoversConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div data-role="page" class="page type-interior pluginConfigurationPage" data-name="smartCoversConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
         <div data-role="content">
             <div class="content-primary">
-                <h1>Jelly Covers</h1>
+                <h1>SmartCovers</h1>
 
                 <div id="statusSection"></div>
 
-                <form class="jellyCoversConfigForm">
+                <form class="smartCoversConfigForm">
                     <h2>Online Cover Fetching</h2>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -53,7 +53,7 @@
 
                 <br />
                 <h2>Libraries</h2>
-                <p>Enable or disable Jelly Covers as an image fetcher per library.</p>
+                <p>Enable or disable SmartCovers as an image fetcher per library.</p>
 
                 <table class="tblLibraryStatus" style="width: 100%;">
                     <thead>
@@ -71,13 +71,13 @@
         </div>
 
         <script type="text/javascript">
-            var JellyCoversConfig = {
+            var SmartCoversConfig = {
                 pluginId: '82eef869-3f18-4678-968d-06efc10b60cf',
-                providerName: 'Jelly Covers',
-                legacyName: 'Book Cover',
+                providerName: 'SmartCovers',
+                legacyNames: ['Jelly Covers', 'Book Cover'],
 
                 loadConfiguration: function (page) {
-                    ApiClient.getPluginConfiguration(JellyCoversConfig.pluginId).then(function (config) {
+                    ApiClient.getPluginConfiguration(SmartCoversConfig.pluginId).then(function (config) {
                         if (config) {
                             page.querySelector('#chkOnlineFetch').checked = config.EnableOnlineCoverFetch !== false;
                             page.querySelector('#txtDpi').value = config.Dpi || 150;
@@ -86,17 +86,17 @@
                         }
                     });
 
-                    JellyCoversConfig.loadStatus();
-                    JellyCoversConfig.loadLibraries();
+                    SmartCoversConfig.loadStatus();
+                    SmartCoversConfig.loadLibraries();
                 },
 
                 saveConfiguration: function (page) {
-                    ApiClient.getPluginConfiguration(JellyCoversConfig.pluginId).then(function (config) {
+                    ApiClient.getPluginConfiguration(SmartCoversConfig.pluginId).then(function (config) {
                         config.EnableOnlineCoverFetch = page.querySelector('#chkOnlineFetch').checked;
                         config.Dpi = parseInt(page.querySelector('#txtDpi').value, 10) || 150;
                         config.JpegQuality = parseInt(page.querySelector('#txtJpegQuality').value, 10) || 85;
                         config.TimeoutSeconds = parseInt(page.querySelector('#txtTimeout').value, 10) || 30;
-                        ApiClient.updatePluginConfiguration(JellyCoversConfig.pluginId, config).then(function (result) {
+                        ApiClient.updatePluginConfiguration(SmartCoversConfig.pluginId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
                     });
@@ -104,7 +104,7 @@
 
                 loadStatus: function () {
                     var section = document.querySelector('#statusSection');
-                    ApiClient.getJSON(ApiClient.getUrl('JellyCovers/Status')).then(function (status) {
+                    ApiClient.getJSON(ApiClient.getUrl('SmartCovers/Status')).then(function (status) {
                         var lines = [];
 
                         if (status.PdftoppmAvailable) {
@@ -147,7 +147,7 @@
 
                     ApiClient.getJSON(ApiClient.getUrl('Library/VirtualFolders')).then(function (folders) {
                         tbody.innerHTML = '';
-                        JellyCoversConfig.libraryCache = {};
+                        SmartCoversConfig.libraryCache = {};
 
                         if (!folders || folders.length === 0) {
                             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2em;opacity:0.7;">No libraries found.</td></tr>';
@@ -156,7 +156,7 @@
 
                         var relevant = folders.filter(function (f) {
                             var ct = (f.CollectionType || '').toLowerCase();
-                            return ct in JellyCoversConfig.typeMap;
+                            return ct in SmartCoversConfig.typeMap;
                         });
 
                         if (relevant.length === 0) {
@@ -164,9 +164,9 @@
                         }
 
                         relevant.forEach(function (lib) {
-                            JellyCoversConfig.libraryCache[lib.ItemId] = lib;
+                            SmartCoversConfig.libraryCache[lib.ItemId] = lib;
                             var row = document.createElement('tr');
-                            var enabled = JellyCoversConfig.isEnabled(lib);
+                            var enabled = SmartCoversConfig.isEnabled(lib);
 
                             var nameCell = document.createElement('td');
                             nameCell.textContent = lib.Name;
@@ -191,7 +191,7 @@
                             toggleBtn.id = 'toggleBtn_' + lib.ItemId;
                             toggleBtn.innerHTML = enabled ? '<span>Disable</span>' : '<span>Enable</span>';
                             toggleBtn.onclick = (function (id) {
-                                return function () { JellyCoversConfig.toggleLibrary(id, !JellyCoversConfig.isEnabled(JellyCoversConfig.libraryCache[id])); };
+                                return function () { SmartCoversConfig.toggleLibrary(id, !SmartCoversConfig.isEnabled(SmartCoversConfig.libraryCache[id])); };
                             })(lib.ItemId);
                             actionsCell.appendChild(toggleBtn);
 
@@ -234,7 +234,7 @@
                             tbody.appendChild(row);
                         });
                     }).catch(function (error) {
-                        console.error('JellyCovers: error loading libraries', error);
+                        console.error('SmartCovers: error loading libraries', error);
                         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2em;color:#CC7B19;">Error loading libraries.</td></tr>';
                     });
                 },
@@ -242,17 +242,20 @@
                 isEnabled: function (lib) {
                     var typeOptions = lib.LibraryOptions && lib.LibraryOptions.TypeOptions;
                     if (!typeOptions || !Array.isArray(typeOptions)) return false;
-                    var name = JellyCoversConfig.providerName;
-                    var legacy = JellyCoversConfig.legacyName;
+                    var name = SmartCoversConfig.providerName;
+                    var legacies = SmartCoversConfig.legacyNames;
                     for (var i = 0; i < typeOptions.length; i++) {
                         var fetchers = typeOptions[i].ImageFetchers || [];
-                        if (fetchers.indexOf(name) !== -1 || fetchers.indexOf(legacy) !== -1) return true;
+                        if (fetchers.indexOf(name) !== -1) return true;
+                        for (var j = 0; j < legacies.length; j++) {
+                            if (fetchers.indexOf(legacies[j]) !== -1) return true;
+                        }
                     }
                     return false;
                 },
 
                 toggleLibrary: function (libraryId, enable) {
-                    var lib = JellyCoversConfig.libraryCache[libraryId];
+                    var lib = SmartCoversConfig.libraryCache[libraryId];
                     if (!lib) return;
 
                     var toggleBtn = document.querySelector('#toggleBtn_' + libraryId);
@@ -262,9 +265,9 @@
                     if (!opts.TypeOptions) opts.TypeOptions = [];
 
                     var ct = (lib.CollectionType || '').toLowerCase();
-                    var itemTypes = JellyCoversConfig.typeMap[ct] || ['Book', 'AudioBook'];
-                    var name = JellyCoversConfig.providerName;
-                    var legacy = JellyCoversConfig.legacyName;
+                    var itemTypes = SmartCoversConfig.typeMap[ct] || ['Book', 'AudioBook'];
+                    var name = SmartCoversConfig.providerName;
+                    var legacies = SmartCoversConfig.legacyNames;
 
                     itemTypes.forEach(function (itemType) {
                         var found = false;
@@ -274,11 +277,13 @@
                                 if (!to.ImageFetchers) to.ImageFetchers = [];
                                 if (!to.ImageFetcherOrder) to.ImageFetcherOrder = [];
 
-                                // Remove legacy name if present
-                                var legacyIdx = to.ImageFetchers.indexOf(legacy);
-                                if (legacyIdx !== -1) to.ImageFetchers.splice(legacyIdx, 1);
-                                var legacyOrderIdx = to.ImageFetcherOrder.indexOf(legacy);
-                                if (legacyOrderIdx !== -1) to.ImageFetcherOrder.splice(legacyOrderIdx, 1);
+                                // Remove legacy names if present
+                                legacies.forEach(function (legacy) {
+                                    var legacyIdx = to.ImageFetchers.indexOf(legacy);
+                                    if (legacyIdx !== -1) to.ImageFetchers.splice(legacyIdx, 1);
+                                    var legacyOrderIdx = to.ImageFetcherOrder.indexOf(legacy);
+                                    if (legacyOrderIdx !== -1) to.ImageFetcherOrder.splice(legacyOrderIdx, 1);
+                                });
 
                                 var idx = to.ImageFetchers.indexOf(name);
                                 if (enable && idx === -1) {
@@ -322,9 +327,9 @@
                         var scanBtn = document.querySelector('#scanBtn_' + libraryId);
                         if (scanBtn) scanBtn.style.display = enable ? '' : 'none';
 
-                        Dashboard.alert('Jelly Covers ' + (enable ? 'enabled' : 'disabled') + ' for "' + lib.Name + '".');
+                        Dashboard.alert('SmartCovers ' + (enable ? 'enabled' : 'disabled') + ' for "' + lib.Name + '".');
                     }).catch(function (error) {
-                        console.error('JellyCovers: error toggling library', error);
+                        console.error('SmartCovers: error toggling library', error);
                         if (toggleBtn) {
                             toggleBtn.disabled = false;
                             toggleBtn.innerHTML = enable ? '<span>Enable</span>' : '<span>Disable</span>';
@@ -335,12 +340,12 @@
             };
 
             document.querySelector('[data-role="page"]').addEventListener('pageshow', function () {
-                JellyCoversConfig.loadConfiguration(this);
+                SmartCoversConfig.loadConfiguration(this);
             });
 
-            document.querySelector('.jellyCoversConfigForm').addEventListener('submit', function (e) {
+            document.querySelector('.smartCoversConfigForm').addEventListener('submit', function (e) {
                 e.preventDefault();
-                JellyCoversConfig.saveConfiguration(this.closest('[data-role="page"]'));
+                SmartCoversConfig.saveConfiguration(this.closest('[data-role="page"]'));
                 return false;
             });
         </script>

@@ -3,13 +3,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace JellyCovers;
+namespace SmartCovers;
 
 /// <summary>
 /// API controller exposing tool availability status for the admin config page.
 /// </summary>
 [ApiController]
-[Route("JellyCovers")]
+[Route("SmartCovers")]
 [Authorize(Policy = "RequiresElevation")]
 public class CoverStatusController : ControllerBase
 {

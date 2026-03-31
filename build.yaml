@@ -1,5 +1,5 @@
 ---
-name: "Jelly Covers"
+name: "SmartCovers"
 guid: "82eef869-3f18-4678-968d-06efc10b60cf"
 version: "5.0.0.0"
 targetAbi: "10.11.0.0"
@@ -14,10 +14,11 @@ description: >
 category: "General"
 owner: "GeiserX"
 artifacts:
-  - "JellyCovers.dll"
+  - "SmartCovers.dll"
 changelog: >
+  v6.0.0: Renamed to SmartCovers (Jellyfin branding compliance). Backward
+  compatible with existing Jelly Covers and Book Cover library configurations.
   v5.0.0: Renamed to Jelly Covers. New namespace, config page with native Jellyfin
-  components, per-library enable/disable toggle, dashboard sidebar entry. Backward
-  compatible with existing Book Cover library configurations.
+  components, per-library enable/disable toggle, dashboard sidebar entry.
   v4.0.0: Online cover fetching via Open Library and Google Books.
   v3.0.0: Audiobook cover extraction via ffmpeg raw stream copy.

@@ -1,8 +1,8 @@
-# Jelly Covers - AI Agent Instructions
+# SmartCovers - AI Agent Instructions
 
 ## Project Overview
 
-**Description**: Jellyfin plugin that provides fallback cover-image extraction for books, audiobooks, comics, magazines, and music libraries. Works alongside built-in providers as a safety net — when they fail to find a cover or crash on mislabeled embedded art, Jelly Covers steps in. As a final fallback, searches Open Library and Google Books for cover images automatically.
+**Description**: Jellyfin plugin that provides fallback cover-image extraction for books, audiobooks, comics, magazines, and music libraries. Works alongside built-in providers as a safety net — when they fail to find a cover or crash on mislabeled embedded art, SmartCovers steps in. As a final fallback, searches Open Library and Google Books for cover images automatically.
 
 **Architecture Pattern**: Monolith - single deployable unit (Jellyfin plugin DLL)
 
@@ -10,10 +10,10 @@
 
 ### Repository
 
-- **URL**: https://github.com/GeiserX/jelly-covers
+- **URL**: https://github.com/GeiserX/smart-covers
 - **Platform**: GitHub
 - **Plugin GUID**: `82eef869-3f18-4678-968d-06efc10b60cf`
-- **Previous name**: `jellyfin-plugin-book-cover` / "Book Cover" (renamed at v5.0.0.0)
+- **Previous names**: `jellyfin-plugin-book-cover` / "Book Cover" (renamed at v5.0.0.0), `jelly-covers` / "Jelly Covers" (renamed at v6.0.0.0)
 
 ## Technology Stack
 
@@ -47,7 +47,7 @@ Plugin.cs                            Entry point, IHasWebPages (config UI, sideb
 │   ├── PluginConfiguration.cs       Settings: DPI, JPEG quality, timeout, online fetch toggle
 │   └── configPage.html              Admin UI — Jellyfin emby-* components, per-library toggle
 ├── CoverImageProvider.cs            IDynamicImageProvider: PDF, EPUB, audio, folder, sidecar
-├── CoverStatusController.cs         REST API: GET /JellyCovers/Status
+├── CoverStatusController.cs         REST API: GET /SmartCovers/Status
 ├── OnlineCoverFetcher.cs            Open Library + Google Books (last resort)
 └── PluginServiceRegistrar.cs        Registers CoverImageProvider as singleton
 ```
@@ -67,11 +67,11 @@ Each method returns a `DynamicImageResponse` with a `MemoryStream`. One image at
 
 ### Why Raw Stream Copy
 
-Jellyfin's built-in Image Extractor uses ffmpeg to decode embedded artwork. This fails when the codec tag doesn't match the actual data — common in MP3 files where JPEG art is tagged as PNG in ID3. Jelly Covers uses `-vcodec copy` (no decoding) and identifies format from magic bytes.
+Jellyfin's built-in Image Extractor uses ffmpeg to decode embedded artwork. This fails when the codec tag doesn't match the actual data — common in MP3 files where JPEG art is tagged as PNG in ID3. SmartCovers uses `-vcodec copy` (no decoding) and identifies format from magic bytes.
 
 ### Backward Compatibility
 
-Renamed from "Book Cover" at v5.0.0.0. Config page checks both provider names (`legacyName: 'Book Cover'`). When toggling a library, removes legacy name and adds new one. GUID unchanged.
+Renamed from "Jelly Covers" at v6.0.0.0 (previously "Book Cover" at v5.0.0.0). Config page checks all legacy provider names (`legacyNames: ['Jelly Covers', 'Book Cover']`). When toggling a library, removes legacy names and adds new one. GUID unchanged.
 
 ### Online Cover Fetching
 
@@ -81,7 +81,7 @@ Search order: Open Library (title + author) → Google Books (highest resolution
 
 ## Configuration
 
-Editable via **Dashboard → Jelly Covers** (sidebar entry via `EnableInMainMenu = true`).
+Editable via **Dashboard → SmartCovers** (sidebar entry via `EnableInMainMenu = true`).
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -98,41 +98,41 @@ Config page queries `Library/VirtualFolders`, shows each library's status. Enabl
 
 | Method | Path | Auth | Returns |
 |--------|------|------|---------|
-| `GET` | `/JellyCovers/Status` | Admin (`RequiresElevation`) | `{ pdftoppmAvailable, ffmpegAvailable, onlineCoverFetchEnabled }` |
+| `GET` | `/SmartCovers/Status` | Admin (`RequiresElevation`) | `{ pdftoppmAvailable, ffmpegAvailable, onlineCoverFetchEnabled }` |
 
 ## Development Guidelines
 
 ### Build
 
 ```bash
-dotnet build JellyCovers/JellyCovers.csproj -c Release
-# Output: JellyCovers/bin/Release/net9.0/JellyCovers.dll
+dotnet build SmartCovers/SmartCovers.csproj -c Release
+# Output: SmartCovers/bin/Release/net9.0/SmartCovers.dll
 ```
 
 ### Deploy
 
-Copy DLL to `<jellyfin-config>/plugins/JellyCovers_<version>/` and restart Jellyfin. Or install from plugin catalog:
+Copy DLL to `<jellyfin-config>/plugins/SmartCovers_<version>/` and restart Jellyfin. Or install from plugin catalog:
 
 ```
-https://raw.githubusercontent.com/GeiserX/jelly-covers/main/manifest.json
+https://raw.githubusercontent.com/GeiserX/smart-covers/main/manifest.json
 ```
 
 ### CI/CD
 
 GitHub Actions (`.github/workflows/build.yml`):
 
-1. **Build** (all pushes) — Restores, builds, packages `JellyCovers.dll` + `build.yaml` into `jelly-covers.zip`
+1. **Build** (all pushes) — Restores, builds, packages `SmartCovers.dll` + `build.yaml` into `smart-covers.zip`
 2. **Release** (tag pushes) — Creates GitHub Release, generates `manifest.json` with checksum
 
 Manifest auto-commit fails due to branch protection. After each release: download zip, `sha256sum`, update `manifest.json` manually, commit and push.
 
-Version in `JellyCovers.csproj` (`<AssemblyVersion>` + `<FileVersion>`) must match `build.yaml`. Tags: `v5.0.0.0` format.
+Version in `SmartCovers.csproj` (`<AssemblyVersion>` + `<FileVersion>`) must match `build.yaml`. Tags: `v5.0.0.0` format.
 
 ### Config Page
 
 - Jellyfin custom elements: `emby-input`, `emby-button`, `emby-select`, `emby-checkbox`
 - Standard CSS classes only (`inputContainer`, `selectContainer`, etc.) — no custom CSS
-- All logic in `JellyCoversConfig` namespace object
+- All logic in `SmartCoversConfig` namespace object
 - Embedded resource — changes require DLL rebuild
 
 ## Boundaries
@@ -140,7 +140,7 @@ Version in `JellyCovers.csproj` (`<AssemblyVersion>` + `<FileVersion>`) must mat
 ### Always (do without asking)
 
 - Read any file in the project
-- Modify source files in `JellyCovers/`
+- Modify source files in `SmartCovers/`
 - Run build commands
 - Fix compiler warnings or errors
 - Update documentation and README
@@ -159,7 +159,7 @@ Version in `JellyCovers.csproj` (`<AssemblyVersion>` + `<FileVersion>`) must mat
 - Commit secrets or API keys
 - Force push to git
 - Reuse existing version tags
-- Remove backward compatibility for legacy "Book Cover" name (users may still have it configured)
+- Remove backward compatibility for legacy "Book Cover" or "Jelly Covers" names (users may still have them configured)
 - Use string concatenation for process arguments (command injection risk)
 
 ## Code Style
@@ -189,11 +189,11 @@ Things discovered during development that save time and prevent mistakes:
 - **Sidebar visibility**: `EnableInMainMenu = true` on `PluginPageInfo` is the ONLY way to get a plugin config page into Jellyfin's dashboard sidebar. `MenuSection`, `MenuIcon`, and `DisplayName` properties do NOT exist — don't waste time trying them.
 - **Config page styling**: NEVER use custom CSS. Jellyfin's built-in `emby-*` components and standard classes (`inputContainer`, `fieldDescription`, etc.) handle everything. Custom styling breaks across Jellyfin themes.
 - **Library API**: `GET Library/VirtualFolders` returns libraries. Each has `LibraryOptions.TypeOptions[].ImageFetchers[]` — an array of enabled provider names. `POST Library/VirtualFolders/LibraryOptions` with the full `LibraryOptions` object updates them. You must send the complete object, not a partial update.
-- **Provider name in library configs**: When users enabled "Book Cover" in their libraries, that string is stored in `ImageFetchers`. The config page must check for BOTH `"Jelly Covers"` and `"Book Cover"` when showing status, and replace the old name on toggle. Do not remove this backward compatibility.
+- **Provider name in library configs**: When users enabled "Book Cover" or "Jelly Covers" in their libraries, those strings are stored in `ImageFetchers`. The config page must check for ALL of `"SmartCovers"`, `"Jelly Covers"`, and `"Book Cover"` when showing status, and replace old names on toggle. Do not remove this backward compatibility.
 - **Memory footprint**: The plugin processes one item at a time, returns one small `MemoryStream` per extraction (typically <1 MB). No caching, no buffering across items. It has been verified NOT to contribute to Jellyfin memory issues during library scans.
 - **CI manifest workaround**: The `stefanzweifel/git-auto-commit-action` step in the release workflow always fails due to branch protection rules. This is expected. The manual steps (download zip → sha256sum → update manifest.json → push) are the permanent workflow.
 - **Awesome-list PRs**: Open PRs exist at `awesome-jellyfin/awesome-jellyfin` and `quozd/awesome-dotnet` referencing this plugin. If the plugin is renamed again, those PRs need updating (branch content + PR title/body).
-- **Deploy path on production**: The Jellyfin instance runs on `watchtower` (Unraid). Plugin path: `/mnt/user/appdata/arr/jellyfin/config/plugins/JellyCovers_<version>/`. Old plugin folders may have FUSE hidden files while Jellyfin is running — restart first, then delete.
+- **Deploy path on production**: The Jellyfin instance runs on `watchtower` (Unraid). Plugin path: `/mnt/user/appdata/arr/jellyfin/config/plugins/SmartCovers_<version>/`. Old plugin folders may have FUSE hidden files while Jellyfin is running — restart first, then delete.
 
 ## ⚠️ Security Notice
 

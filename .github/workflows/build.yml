@@ -26,23 +26,23 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore JellyCovers/JellyCovers.csproj
+        run: dotnet restore SmartCovers/SmartCovers.csproj
 
       - name: Build
-        run: dotnet build JellyCovers/JellyCovers.csproj -c Release --no-restore
+        run: dotnet build SmartCovers/SmartCovers.csproj -c Release --no-restore
 
       - name: Create plugin package
         run: |
           mkdir -p artifacts
-          cp JellyCovers/bin/Release/net9.0/JellyCovers.dll artifacts/
+          cp SmartCovers/bin/Release/net9.0/SmartCovers.dll artifacts/
           cp build.yaml artifacts/
-          cd artifacts && zip -r ../jelly-covers.zip .
+          cd artifacts && zip -r ../smart-covers.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jelly-covers-plugin
-          path: jelly-covers.zip
+          name: smart-covers-plugin
+          path: smart-covers.zip
 
   release:
     needs: build
@@ -56,7 +56,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: jelly-covers-plugin
+          name: smart-covers-plugin
 
       - name: Extract version from tag
         id: version
@@ -65,25 +65,25 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Jelly Covers v${{ steps.version.outputs.VERSION }}
+          name: SmartCovers v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: jelly-covers.zip
+          files: smart-covers.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update manifest.json
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
-          CHECKSUM=$(sha256sum jelly-covers.zip | awk '{print $1}')
+          CHECKSUM=$(sha256sum smart-covers.zip | awk '{print $1}')
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           cat > manifest.json << EOF
           [
             {
               "guid": "82eef869-3f18-4678-968d-06efc10b60cf",
-              "name": "Jelly Covers",
+              "name": "SmartCovers",
               "overview": "Cover extraction for books, audiobooks, comics, and music — with online fallback via Open Library & Google Books.",
               "description": "Cover provider for Jellyfin libraries. Extracts PDF first pages via pdftoppm, searches EPUB archives for cover images, and extracts embedded artwork from audio files via ffmpeg. When local extraction fails, automatically fetches covers from Open Library and Google Books as a last resort.",
               "owner": "GeiserX",
@@ -92,9 +92,9 @@ jobs:
               "versions": [
                 {
                   "version": "${VERSION}",
-                  "changelog": "See https://github.com/GeiserX/jelly-covers/releases/tag/v${VERSION}",
+                  "changelog": "See https://github.com/GeiserX/smart-covers/releases/tag/v${VERSION}",
                   "targetAbi": "10.11.0.0",
-                  "sourceUrl": "https://github.com/GeiserX/jelly-covers/releases/download/v${VERSION}/jelly-covers.zip",
+                  "sourceUrl": "https://github.com/GeiserX/smart-covers/releases/download/v${VERSION}/smart-covers.zip",
                   "checksum": "${CHECKSUM}",
                   "timestamp": "${TIMESTAMP}"
                 }

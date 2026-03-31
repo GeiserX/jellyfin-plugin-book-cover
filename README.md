@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/banner.svg" alt="jelly-covers banner" width="900"/>
+  <img src="docs/images/banner.svg" alt="smart-covers banner" width="900"/>
 </p>
 
 <p align="center">
@@ -7,16 +7,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/GeiserX/jelly-covers/releases/latest"><img src="https://img.shields.io/github/v/release/GeiserX/jelly-covers?style=flat-square&color=6B4C9A" alt="Latest Release"/></a>
-  <a href="https://github.com/GeiserX/jelly-covers/actions"><img src="https://img.shields.io/github/actions/workflow/status/GeiserX/jelly-covers/build.yml?branch=main&style=flat-square" alt="Build Status"/></a>
-  <a href="https://github.com/GeiserX/jelly-covers/blob/main/LICENSE"><img src="https://img.shields.io/github/license/GeiserX/jelly-covers?style=flat-square&color=AA5CC3" alt="License"/></a>
+  <a href="https://github.com/GeiserX/smart-covers/releases/latest"><img src="https://img.shields.io/github/v/release/GeiserX/smart-covers?style=flat-square&color=6B4C9A" alt="Latest Release"/></a>
+  <a href="https://github.com/GeiserX/smart-covers/actions"><img src="https://img.shields.io/github/actions/workflow/status/GeiserX/smart-covers/build.yml?branch=main&style=flat-square" alt="Build Status"/></a>
+  <a href="https://github.com/GeiserX/smart-covers/blob/main/LICENSE"><img src="https://img.shields.io/github/license/GeiserX/smart-covers?style=flat-square&color=AA5CC3" alt="License"/></a>
   <img src="https://img.shields.io/badge/Jellyfin-10.11%2B-6B4C9A?style=flat-square" alt="Jellyfin 10.11+"/>
   <img src="https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square" alt=".NET 9.0"/>
 </p>
 
 ---
 
-A Jellyfin plugin that provides **cover-image extraction** for books, audiobooks, comics, magazines, and music libraries. It works alongside built-in providers as a safety net: when they fail to find a cover -- or crash on mislabeled embedded art -- Jelly Covers steps in. As a final fallback, it can search **Open Library** and **Google Books** for cover images automatically.
+A Jellyfin plugin that provides **cover-image extraction** for books, audiobooks, comics, magazines, and music libraries. It works alongside built-in providers as a safety net: when they fail to find a cover -- or crash on mislabeled embedded art -- SmartCovers steps in. As a final fallback, it can search **Open Library** and **Google Books** for cover images automatically.
 
 ## Supported Formats
 
@@ -42,7 +42,7 @@ The plugin shells out to `pdftoppm` (from poppler-utils) to render the first pag
 
 ### EPUB -- 3-Tier Archive Search
 
-EPUBs are ZIP archives. When other plugins fail to extract a cover, Jelly Covers opens the archive and searches with three strategies, in order:
+EPUBs are ZIP archives. When other plugins fail to extract a cover, SmartCovers opens the archive and searches with three strategies, in order:
 
 1. **By filename** -- files explicitly named `cover`, `portada`, `front`, `frontcover`, or `book_cover` (with any image extension).
 2. **By path** -- any image file with `cover` in its full archive path (e.g., `OEBPS/Images/cover-image.jpg`).
@@ -52,7 +52,7 @@ EPUBs are ZIP archives. When other plugins fail to extract a cover, Jelly Covers
 
 Jellyfin's built-in Image Extractor uses ffmpeg to *decode* embedded artwork. This fails when the codec tag does not match the actual data -- a common problem in MP3 files where JPEG cover art is tagged as PNG in ID3 metadata.
 
-Jelly Covers sidesteps this entirely by using `ffmpeg -vcodec copy` to **raw-copy** the embedded image stream without decoding. It then identifies the actual format by inspecting magic bytes:
+SmartCovers sidesteps this entirely by using `ffmpeg -vcodec copy` to **raw-copy** the embedded image stream without decoding. It then identifies the actual format by inspecting magic bytes:
 
 | Magic Bytes | Detected Format |
 |-------------|-----------------|
@@ -86,10 +86,10 @@ This feature is **enabled by default** and can be toggled in the plugin settings
 
 ### From Releases
 
-1. Download `jelly-covers.zip` from the [latest release](https://github.com/GeiserX/jelly-covers/releases/latest).
-2. Extract `JellyCovers.dll` into your Jellyfin plugins directory:
+1. Download `smart-covers.zip` from the [latest release](https://github.com/GeiserX/smart-covers/releases/latest).
+2. Extract `SmartCovers.dll` into your Jellyfin plugins directory:
    ```
-   <jellyfin-config>/plugins/JellyCovers_5.0.0.0/JellyCovers.dll
+   <jellyfin-config>/plugins/SmartCovers_5.0.0.0/SmartCovers.dll
    ```
 3. Restart Jellyfin.
 
@@ -98,20 +98,20 @@ This feature is **enabled by default** and can be toggled in the plugin settings
 Add the following repository URL in **Dashboard > Plugins > Repositories**:
 
 ```
-https://raw.githubusercontent.com/GeiserX/jelly-covers/main/manifest.json
+https://raw.githubusercontent.com/GeiserX/smart-covers/main/manifest.json
 ```
 
-Then install **Jelly Covers** from the plugin catalog and restart Jellyfin.
+Then install **SmartCovers** from the plugin catalog and restart Jellyfin.
 
 ### Building from Source
 
 ```bash
-dotnet build JellyCovers/JellyCovers.csproj -c Release
+dotnet build SmartCovers/SmartCovers.csproj -c Release
 ```
 
 The compiled DLL will be at:
 ```
-JellyCovers/bin/Release/net9.0/JellyCovers.dll
+SmartCovers/bin/Release/net9.0/SmartCovers.dll
 ```
 
 ## Requirements
@@ -141,7 +141,7 @@ entrypoint:
 
 ## Configuration
 
-After installation, configure the plugin in **Dashboard > Jelly Covers** (appears in the sidebar):
+After installation, configure the plugin in **Dashboard > SmartCovers** (appears in the sidebar):
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -152,7 +152,7 @@ After installation, configure the plugin in **Dashboard > Jelly Covers** (appear
 
 ### Per-Library Enable/Disable
 
-The plugin settings page includes a **Libraries** section where you can enable or disable Jelly Covers for each library directly -- no need to navigate to individual library settings. A **Refresh Images** button is available for enabled libraries.
+The plugin settings page includes a **Libraries** section where you can enable or disable SmartCovers for each library directly -- no need to navigate to individual library settings. A **Refresh Images** button is available for enabled libraries.
 
 ## Troubleshooting
 

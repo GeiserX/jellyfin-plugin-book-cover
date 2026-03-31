@@ -2,7 +2,7 @@ using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace JellyCovers;
+namespace SmartCovers;
 
 /// <summary>
 /// Registers plugin services for dependency injection.

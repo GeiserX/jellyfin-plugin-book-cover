@@ -7,7 +7,7 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Net;
 using Microsoft.Extensions.Logging;
 
-namespace JellyCovers;
+namespace SmartCovers;
 
 /// <summary>
 /// Fallback cover provider for books and audiobooks. Handles PDFs (first page
@@ -49,7 +49,7 @@ public class CoverImageProvider : IDynamicImageProvider
     }
 
     /// <inheritdoc />
-    public string Name => "Jelly Covers";
+    public string Name => "SmartCovers";
 
     /// <inheritdoc />
     public bool Supports(BaseItem item) => item is Book || item is AudioBook;

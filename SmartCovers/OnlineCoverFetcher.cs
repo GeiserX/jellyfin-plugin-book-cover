@@ -5,7 +5,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.Drawing;
 using Microsoft.Extensions.Logging;
 
-namespace JellyCovers;
+namespace SmartCovers;
 
 /// <summary>
 /// Fetches book/audiobook covers from online sources (Open Library, Google Books)
@@ -68,7 +68,7 @@ public class OnlineCoverFetcher
             Timeout = TimeSpan.FromSeconds(15)
         };
         client.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "JellyCovers/5.0 (https://github.com/GeiserX/jelly-covers)");
+            "SmartCovers/5.0 (https://github.com/GeiserX/smart-covers)");
         return client;
     }
 

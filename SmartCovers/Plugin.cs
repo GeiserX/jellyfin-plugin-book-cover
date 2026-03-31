@@ -1,11 +1,11 @@
 using System.Globalization;
-using JellyCovers.Configuration;
+using SmartCovers.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
-namespace JellyCovers;
+namespace SmartCovers;
 
 /// <summary>
 /// Cover provider for Jellyfin libraries. Extracts covers from PDFs, EPUBs,
@@ -23,7 +23,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <inheritdoc />
-    public override string Name => "Jelly Covers";
+    public override string Name => "SmartCovers";
 
     /// <inheritdoc />
     public override Guid Id => Guid.Parse("82eef869-3f18-4678-968d-06efc10b60cf");
