@@ -124,7 +124,7 @@ GitHub Actions (`.github/workflows/build.yml`):
 1. **Build** (all pushes) — Restores, builds, packages `SmartCovers.dll` + `build.yaml` into `smart-covers.zip`
 2. **Release** (tag pushes) — Creates GitHub Release, generates `manifest.json` with checksum
 
-Manifest auto-commit fails due to branch protection. After each release: download zip, `sha256sum`, update `manifest.json` manually, commit and push.
+Manifest auto-commit fails due to branch protection. After each release: download zip, `md5sum`, update `manifest.json` manually, commit and push.
 
 Version in `SmartCovers.csproj` (`<AssemblyVersion>` + `<FileVersion>`) must match `build.yaml`. Tags: `v5.0.0.0` format.
 
@@ -191,7 +191,7 @@ Things discovered during development that save time and prevent mistakes:
 - **Library API**: `GET Library/VirtualFolders` returns libraries. Each has `LibraryOptions.TypeOptions[].ImageFetchers[]` — an array of enabled provider names. `POST Library/VirtualFolders/LibraryOptions` with the full `LibraryOptions` object updates them. You must send the complete object, not a partial update.
 - **Provider name in library configs**: When users enabled "Book Cover" or "Jelly Covers" in their libraries, those strings are stored in `ImageFetchers`. The config page must check for ALL of `"SmartCovers"`, `"Jelly Covers"`, and `"Book Cover"` when showing status, and replace old names on toggle. Do not remove this backward compatibility.
 - **Memory footprint**: The plugin processes one item at a time, returns one small `MemoryStream` per extraction (typically <1 MB). No caching, no buffering across items. It has been verified NOT to contribute to Jellyfin memory issues during library scans.
-- **CI manifest workaround**: The `stefanzweifel/git-auto-commit-action` step in the release workflow always fails due to branch protection rules. This is expected. The manual steps (download zip → sha256sum → update manifest.json → push) are the permanent workflow.
+- **CI manifest workaround**: The `stefanzweifel/git-auto-commit-action` step in the release workflow always fails due to branch protection rules. This is expected. The manual steps (download zip → md5sum → update manifest.json → push) are the permanent workflow.
 - **Awesome-list PRs**: Open PRs exist at `awesome-jellyfin/awesome-jellyfin` and `quozd/awesome-dotnet` referencing this plugin. If the plugin is renamed again, those PRs need updating (branch content + PR title/body).
 - **Deploy path on production**: The Jellyfin instance runs on `watchtower` (Unraid). Plugin path: `/mnt/user/appdata/arr/jellyfin/config/plugins/SmartCovers_<version>/`. Old plugin folders may have FUSE hidden files while Jellyfin is running — restart first, then delete.
 
