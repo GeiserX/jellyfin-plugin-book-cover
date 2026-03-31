@@ -176,6 +176,15 @@ The plugin settings page includes a **Libraries** section where you can enable o
 - Verify the Jellyfin server has outbound internet access (the plugin queries `openlibrary.org` and `googleapis.com`).
 - Items that already have a cover from a higher-priority provider will not trigger online fetching. Delete the existing cover and rescan to force it.
 
+## Related Jellyfin Tools
+
+| Project | Description |
+|---------|-------------|
+| [jelly-subtitles](https://github.com/GeiserX/jelly-subtitles) | Local AI-powered subtitle generation using Whisper |
+| [jellyfin-encoder](https://github.com/GeiserX/jellyfin-encoder) | Automatic 720p HEVC/AV1 transcoding with hardware acceleration |
+| [jellyfin-telegram-channel-sync](https://github.com/GeiserX/jellyfin-telegram-channel-sync) | Sync user access with Telegram channel membership |
+
+
 ## License
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE).
