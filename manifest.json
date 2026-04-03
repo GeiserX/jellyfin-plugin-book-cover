@@ -13,8 +13,8 @@
         "changelog": "Rename to SmartCovers (Jellyfin branding compliance). All namespaces, DLL, and provider names updated.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/GeiserX/smart-covers/releases/download/v6.0.0.0/smart-covers.zip",
-        "checksum": "a0d67b9913e47fe47d984dc10ac15204",
-        "timestamp": "2026-03-31T16:00:00Z"
+        "checksum": "302ad4c16256e0c5ebc800e58f3f3c7b",
+        "timestamp": "2026-04-03T09:22:00Z"
       },
       {
         "version": "5.0.0.0",
