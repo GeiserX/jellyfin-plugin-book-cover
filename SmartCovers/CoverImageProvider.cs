@@ -1,18 +1,20 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Drawing;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Net;
 using Microsoft.Extensions.Logging;
+using PDFtoImage;
 
 namespace SmartCovers;
 
 /// <summary>
 /// Fallback cover provider for books and audiobooks. Handles PDFs (first page
-/// via pdftoppm), EPUBs (aggressive image search inside the ZIP archive), and
-/// audio files (embedded art extraction via ffmpeg raw stream copy).
+/// rendered via built-in PDFium), EPUBs (aggressive image search inside the ZIP
+/// archive), and audio files (embedded art extraction via ffmpeg raw stream copy).
 /// Acts as a safety net when built-in providers fail — particularly for audio
 /// files with mislabeled codec tags (e.g. JPEG data tagged as PNG in ID3).
 /// </summary>
@@ -35,7 +37,7 @@ public class CoverImageProvider : IDynamicImageProvider
 
     private readonly ILogger<CoverImageProvider> _logger;
     private readonly OnlineCoverFetcher _onlineFetcher;
-    private bool? _pdftoppmAvailable;
+    private bool? _pdfRenderingAvailable;
     private string? _ffmpegPath;
     private bool _ffmpegChecked;
 
@@ -52,7 +54,7 @@ public class CoverImageProvider : IDynamicImageProvider
     public string Name => "SmartCovers";
 
     /// <inheritdoc />
-    public bool Supports(BaseItem item) => item is Book || item is AudioBook;
+    public bool Supports(BaseItem item) => item is Book || item is AudioBook || item is Audio || item is MusicAlbum;
 
     /// <inheritdoc />
     public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
@@ -102,8 +104,9 @@ public class CoverImageProvider : IDynamicImageProvider
             }
         }
 
-        // Final fallback: fetch cover from online sources
-        if (!result.HasImage)
+        // Final fallback: fetch cover from online sources (books/audiobooks only).
+        // Online fetcher queries Open Library and Google Books — irrelevant for music.
+        if (!result.HasImage && item is not Audio && item is not MusicAlbum)
         {
             result = await GetOnlineCover(item, cancellationToken).ConfigureAwait(false);
         }
@@ -221,132 +224,118 @@ public class CoverImageProvider : IDynamicImageProvider
     {
         var noImage = new DynamicImageResponse { HasImage = false };
 
-        if (!IsPdftoppmAvailable())
+        if (!IsPdfRenderingAvailable())
         {
             return noImage;
         }
 
         var config = Plugin.Instance?.Configuration;
         var dpi = config?.Dpi ?? 150;
-        var jpegQuality = config?.JpegQuality ?? 85;
         var timeoutSec = config?.TimeoutSeconds ?? 30;
-
-        var tempPrefix = Path.Combine(Path.GetTempPath(), $"jf-pdf-{Guid.NewGuid():N}");
 
         try
         {
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
+            // Run synchronous PDFium rendering on a thread-pool thread.
+            // Task.Run's token only prevents scheduling — it cannot interrupt
+            // SaveJpeg once it's running. Race against a standalone Task.Delay
+            // for a real timeout boundary. The delay is NOT linked to
+            // cancellationToken so that caller cancellation propagates correctly
+            // through renderTask (via OCE) instead of being misclassified as a
+            // timeout.
+            var renderTask = Task.Run(
+                () =>
+                {
+                    using var pdfStream = File.OpenRead(path);
+                    var output = new MemoryStream();
+                    var options = new RenderOptions { Dpi = dpi };
+                    Conversion.SaveJpeg(output, pdfStream, page: new Index(0), options: options);
+                    return output;
+                },
+                cancellationToken);
+
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSec));
+            var completed = await Task.WhenAny(renderTask, timeoutTask).ConfigureAwait(false);
+
+            if (completed == renderTask)
             {
-                FileName = "pdftoppm",
-                RedirectStandardOutput = false,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+                // Render finished — await to propagate OCE or other exceptions.
+                var ms = await renderTask.ConfigureAwait(false);
 
-            process.StartInfo.ArgumentList.Add("-jpeg");
-            process.StartInfo.ArgumentList.Add("-jpegopt");
-            process.StartInfo.ArgumentList.Add($"quality={jpegQuality}");
-            process.StartInfo.ArgumentList.Add("-f");
-            process.StartInfo.ArgumentList.Add("1");
-            process.StartInfo.ArgumentList.Add("-l");
-            process.StartInfo.ArgumentList.Add("1");
-            process.StartInfo.ArgumentList.Add("-r");
-            process.StartInfo.ArgumentList.Add(dpi.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            process.StartInfo.ArgumentList.Add("-singlefile");
-            process.StartInfo.ArgumentList.Add(path);
-            process.StartInfo.ArgumentList.Add(tempPrefix);
+                if (ms.Length == 0)
+                {
+                    ms.Dispose();
+                    return noImage;
+                }
 
-            process.Start();
+                ms.Position = 0;
 
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSec));
+                _logger.LogDebug("Rendered PDF cover ({Size} bytes, {Dpi} DPI) from {Path}", ms.Length, dpi, path);
 
-            try
-            {
-                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                TryKill(process);
-                _logger.LogWarning("pdftoppm timed out after {Timeout}s for {Path}", timeoutSec, path);
-                return noImage;
-            }
-
-            var jpegPath = tempPrefix + ".jpg";
-
-            if (process.ExitCode != 0 || !File.Exists(jpegPath))
-            {
-                var stderr = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-                _logger.LogWarning(
-                    "pdftoppm exit {Code} for {Path}: {Error}",
-                    process.ExitCode,
-                    path,
-                    stderr.Length > 200 ? stderr[..200] : stderr);
-                CleanupTemp(jpegPath);
-                return noImage;
+                return new DynamicImageResponse
+                {
+                    HasImage = true,
+                    Stream = ms,
+                    Format = ImageFormat.Jpg
+                };
             }
 
-            var bytes = await File.ReadAllBytesAsync(jpegPath, cancellationToken).ConfigureAwait(false);
-            CleanupTemp(jpegPath);
+            // Timeout won the race. Distinguish caller cancellation from real timeout.
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (bytes.Length == 0)
-            {
-                return noImage;
-            }
+            _logger.LogWarning("PDF rendering timed out after {Timeout}s for {Path}", timeoutSec, path);
 
-            return new DynamicImageResponse
-            {
-                HasImage = true,
-                Stream = new MemoryStream(bytes),
-                Format = ImageFormat.Jpg
-            };
+            // Observe the orphaned render task to prevent unobserved exceptions
+            // and dispose the MemoryStream if it eventually completes.
+            _ = renderTask.ContinueWith(
+                static t =>
+                {
+                    if (t.IsCompletedSuccessfully) t.Result.Dispose();
+                    _ = t.Exception;
+                },
+                TaskScheduler.Default);
+
+            return noImage;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "Failed to extract PDF cover for {Path}", path);
-            CleanupTemp(tempPrefix + ".jpg");
+            _logger.LogError(ex, "Failed to render PDF cover for {Path}", path);
             return noImage;
         }
     }
 
     /// <summary>
-    /// Checks whether pdftoppm is available on the system.
+    /// Probes whether the bundled PDFium native library loads successfully by
+    /// attempting to render a minimal 1-page PDF. Result is cached for the
+    /// lifetime of the singleton.
     /// </summary>
-    internal bool IsPdftoppmAvailable()
+    internal bool IsPdfRenderingAvailable()
     {
-        if (_pdftoppmAvailable.HasValue)
+        if (_pdfRenderingAvailable.HasValue)
         {
-            return _pdftoppmAvailable.Value;
+            return _pdfRenderingAvailable.Value;
         }
 
         try
         {
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = "pdftoppm",
-                ArgumentList = { "-v" },
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            process.Start();
-            process.WaitForExit(5000);
-
-            _pdftoppmAvailable = true;
-            _logger.LogInformation("pdftoppm detected — PDF cover extraction enabled");
+            // Minimal valid PDF (1 blank page) to trigger native pdfium load.
+            var minimalPdf = "%PDF-1.0\n1 0 obj<</Pages 2 0 R>>endobj\n2 0 obj<</Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</MediaBox[0 0 1 1]>>endobj\ntrailer<</Root 1 0 R>>"u8;
+            using var pdfStream = new MemoryStream(minimalPdf.ToArray());
+            using var output = new MemoryStream();
+            Conversion.SaveJpeg(output, pdfStream, page: new Index(0));
+            _pdfRenderingAvailable = output.Length > 0;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            _pdftoppmAvailable = false;
-            _logger.LogWarning("pdftoppm not found. Install poppler-utils to enable PDF cover extraction");
+            _pdfRenderingAvailable = false;
+            _logger.LogWarning(ex, "PDFium native library failed to load — PDF cover extraction disabled");
         }
 
-        return _pdftoppmAvailable.Value;
+        if (_pdfRenderingAvailable == true)
+        {
+            _logger.LogInformation("PDFium loaded — PDF cover extraction enabled");
+        }
+
+        return _pdfRenderingAvailable.Value;
     }
 
     private static void TryKill(Process process)
@@ -733,10 +722,17 @@ public class CoverImageProvider : IDynamicImageProvider
             };
 
             process.Start();
-            process.WaitForExit(5000);
-
-            _ffmpegPath = "ffmpeg";
-            _logger.LogInformation("Found system ffmpeg — audio cover extraction enabled");
+            if (process.WaitForExit(5000) && process.ExitCode == 0)
+            {
+                _ffmpegPath = "ffmpeg";
+                _logger.LogInformation("Found system ffmpeg — audio cover extraction enabled");
+            }
+            else
+            {
+                TryKill(process);
+                _logger.LogWarning("ffmpeg probe timed out or returned non-zero exit code. Audio cover extraction disabled");
+                _ffmpegPath = null;
+            }
         }
         catch (Exception)
         {
