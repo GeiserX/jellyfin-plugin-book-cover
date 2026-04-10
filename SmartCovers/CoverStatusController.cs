@@ -33,7 +33,7 @@ public class CoverStatusController : ControllerBase
     {
         return new CoverStatus
         {
-            PdfRenderingAvailable = true,
+            PdfRenderingAvailable = _provider.IsPdfRenderingAvailable(),
             FfmpegAvailable = _provider.GetFfmpegPath() != null,
             OnlineCoverFetchEnabled = Plugin.Instance?.Configuration?.EnableOnlineCoverFetch ?? true
         };
@@ -46,7 +46,7 @@ public class CoverStatusController : ControllerBase
 public class CoverStatus
 {
     /// <summary>
-    /// Gets or sets a value indicating whether PDF rendering is available (always true — built-in via PDFium).
+    /// Gets or sets a value indicating whether the bundled PDFium native library loaded successfully.
     /// </summary>
     public bool PdfRenderingAvailable { get; set; }
 

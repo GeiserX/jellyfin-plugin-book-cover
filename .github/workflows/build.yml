@@ -38,7 +38,10 @@ jobs:
           mkdir -p release
           cp publish/SmartCovers.dll release/
           cp publish/PDFtoImage.dll release/
-          # Bundle native pdfium libraries (all platforms)
+          # SkiaSharp is intentionally NOT bundled — Jellyfin already ships it.
+          # Including a second copy would cause assembly loading conflicts.
+          # Bundle native pdfium libraries for all platforms:
+          # linux-x64, linux-arm64, linux-musl-*, osx-*, win-*
           find publish/runtimes -name "libpdfium*" -o -name "pdfium.dll" | while read f; do
             rel="${f#publish/}"
             mkdir -p "release/$(dirname "$rel")"

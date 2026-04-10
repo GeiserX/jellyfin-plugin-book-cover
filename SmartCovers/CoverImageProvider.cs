@@ -36,6 +36,7 @@ public class CoverImageProvider : IDynamicImageProvider
 
     private readonly ILogger<CoverImageProvider> _logger;
     private readonly OnlineCoverFetcher _onlineFetcher;
+    private bool? _pdfRenderingAvailable;
     private string? _ffmpegPath;
     private bool _ffmpegChecked;
 
@@ -217,43 +218,99 @@ public class CoverImageProvider : IDynamicImageProvider
         return ImageExtensions.Contains(Path.GetExtension(fileName));
     }
 
-    private Task<DynamicImageResponse> GetPdfCover(string path, CancellationToken cancellationToken)
+    private async Task<DynamicImageResponse> GetPdfCover(string path, CancellationToken cancellationToken)
     {
         var noImage = new DynamicImageResponse { HasImage = false };
 
+        if (!IsPdfRenderingAvailable())
+        {
+            return noImage;
+        }
+
         var config = Plugin.Instance?.Configuration;
         var dpi = config?.Dpi ?? 150;
+        var timeoutSec = config?.TimeoutSeconds ?? 30;
 
         try
         {
-            using var pdfStream = File.OpenRead(path);
-            var ms = new MemoryStream();
+            // Run synchronous PDFium rendering on a thread-pool thread with a
+            // timeout so that a malformed PDF cannot stall the metadata pipeline.
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSec));
 
-            var options = new RenderOptions { Dpi = dpi };
-            Conversion.SaveJpeg(ms, pdfStream, page: new Index(0), options: options);
+            var ms = await Task.Run(
+                () =>
+                {
+                    using var pdfStream = File.OpenRead(path);
+                    var output = new MemoryStream();
+                    var options = new RenderOptions { Dpi = dpi };
+                    Conversion.SaveJpeg(output, pdfStream, page: new Index(0), options: options);
+                    return output;
+                },
+                timeoutCts.Token).ConfigureAwait(false);
 
             if (ms.Length == 0)
             {
                 ms.Dispose();
-                return Task.FromResult(noImage);
+                return noImage;
             }
 
             ms.Position = 0;
 
             _logger.LogDebug("Rendered PDF cover ({Size} bytes, {Dpi} DPI) from {Path}", ms.Length, dpi, path);
 
-            return Task.FromResult(new DynamicImageResponse
+            return new DynamicImageResponse
             {
                 HasImage = true,
                 Stream = ms,
                 Format = ImageFormat.Jpg
-            });
+            };
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("PDF rendering timed out after {Timeout}s for {Path}", timeoutSec, path);
+            return noImage;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to render PDF cover for {Path}", path);
-            return Task.FromResult(noImage);
+            return noImage;
         }
+    }
+
+    /// <summary>
+    /// Probes whether the bundled PDFium native library loads successfully by
+    /// attempting to render a minimal 1-page PDF. Result is cached for the
+    /// lifetime of the singleton.
+    /// </summary>
+    internal bool IsPdfRenderingAvailable()
+    {
+        if (_pdfRenderingAvailable.HasValue)
+        {
+            return _pdfRenderingAvailable.Value;
+        }
+
+        try
+        {
+            // Minimal valid PDF (1 blank page) to trigger native pdfium load.
+            var minimalPdf = "%PDF-1.0\n1 0 obj<</Pages 2 0 R>>endobj\n2 0 obj<</Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</MediaBox[0 0 1 1]>>endobj\ntrailer<</Root 1 0 R>>"u8;
+            using var pdfStream = new MemoryStream(minimalPdf.ToArray());
+            using var output = new MemoryStream();
+            Conversion.SaveJpeg(output, pdfStream, page: new Index(0));
+            _pdfRenderingAvailable = output.Length > 0;
+        }
+        catch (Exception ex)
+        {
+            _pdfRenderingAvailable = false;
+            _logger.LogWarning(ex, "PDFium native library failed to load — PDF cover extraction disabled");
+        }
+
+        if (_pdfRenderingAvailable == true)
+        {
+            _logger.LogInformation("PDFium loaded — PDF cover extraction enabled");
+        }
+
+        return _pdfRenderingAvailable.Value;
     }
 
     private static void TryKill(Process process)

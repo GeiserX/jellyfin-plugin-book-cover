@@ -35,15 +35,9 @@
                     </div>
 
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="txtJpegQuality">JPEG Quality</label>
-                        <input type="number" id="txtJpegQuality" min="1" max="100" step="1" class="emby-input" />
-                        <div class="fieldDescription">Output compression level (1-100). Default: 85. Lower values produce smaller files.</div>
-                    </div>
-
-                    <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="txtTimeout">Timeout (seconds)</label>
                         <input type="number" id="txtTimeout" min="5" max="120" step="1" class="emby-input" />
-                        <div class="fieldDescription">Maximum time for ffmpeg to extract audio cover art. Default: 30.</div>
+                        <div class="fieldDescription">Maximum time for PDF rendering or ffmpeg audio extraction. Default: 30.</div>
                     </div>
 
                     <button is="emby-button" type="submit" class="raised button-submit block">
@@ -80,7 +74,6 @@
                         if (config) {
                             page.querySelector('#chkOnlineFetch').checked = config.EnableOnlineCoverFetch !== false;
                             page.querySelector('#txtDpi').value = config.Dpi || 150;
-                            page.querySelector('#txtJpegQuality').value = config.JpegQuality || 85;
                             page.querySelector('#txtTimeout').value = config.TimeoutSeconds || 30;
                         }
                     });
@@ -93,7 +86,6 @@
                     ApiClient.getPluginConfiguration(SmartCoversConfig.pluginId).then(function (config) {
                         config.EnableOnlineCoverFetch = page.querySelector('#chkOnlineFetch').checked;
                         config.Dpi = parseInt(page.querySelector('#txtDpi').value, 10) || 150;
-                        config.JpegQuality = parseInt(page.querySelector('#txtJpegQuality').value, 10) || 85;
                         config.TimeoutSeconds = parseInt(page.querySelector('#txtTimeout').value, 10) || 30;
                         ApiClient.updatePluginConfiguration(SmartCoversConfig.pluginId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
@@ -108,6 +100,8 @@
 
                         if (status.PdfRenderingAvailable) {
                             lines.push('<p style="color:#52B54B;">&#10003; PDF rendering available (built-in PDFium).</p>');
+                        } else {
+                            lines.push('<p style="color:#CC7B19;">&#10007; PDFium native library failed to load. PDF cover extraction disabled. Check server logs for details.</p>');
                         }
 
                         if (status.FfmpegAvailable) {
