@@ -30,7 +30,7 @@ jobs:
       - name: Get version from csproj
         id: version
         run: |
-          VERSION=$(grep -oP '(?<=<Version>)[^<]+' SmartCovers/SmartCovers.csproj)
+          VERSION=$(grep -oP '(?<=<AssemblyVersion>)[^<]+' SmartCovers/SmartCovers.csproj)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create plugin package
