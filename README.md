@@ -22,7 +22,7 @@ A Jellyfin plugin that provides **cover-image extraction** for books, audiobooks
 
 | Format | Type | Extraction Method |
 |--------|------|-------------------|
-| PDF | Book / Magazine / Comic | First-page rendering via `pdftoppm` (poppler-utils) |
+| PDF | Book / Magazine / Comic | First-page rendering via built-in PDFium (no external tools needed) |
 | EPUB | Book | Archive introspection with 3-tier image search |
 | MP3 | Audiobook / Music | Embedded art via `ffmpeg` raw stream copy |
 | M4A / M4B | Audiobook / Music | Embedded art via `ffmpeg` raw stream copy |
@@ -38,7 +38,7 @@ A Jellyfin plugin that provides **cover-image extraction** for books, audiobooks
 
 ### PDF -- First Page Rendering
 
-The plugin shells out to `pdftoppm` (from poppler-utils) to render the first page of a PDF as a JPEG. DPI and JPEG quality are configurable. A per-process timeout prevents hangs on malformed files.
+The plugin renders the first page of a PDF as a JPEG using a bundled PDFium native library (via the [PDFtoImage](https://www.nuget.org/packages/PDFtoImage) NuGet package). No external tools like `poppler-utils` or `pdftoppm` are required. DPI is configurable, and a per-render timeout prevents hangs on malformed files. The native library is included for Linux (x64, arm64, musl), macOS, and Windows.
 
 ### EPUB -- 3-Tier Archive Search
 
@@ -84,60 +84,43 @@ This feature is **enabled by default** and can be toggled in the plugin settings
 
 ## Installation
 
-### From Releases
-
-1. Download `smart-covers.zip` from the [latest release](https://github.com/GeiserX/smart-covers/releases/latest).
-2. Extract `SmartCovers.dll` into your Jellyfin plugins directory:
-   ```
-   <jellyfin-config>/plugins/SmartCovers_6.0.0.0/SmartCovers.dll
-   ```
-3. Restart Jellyfin.
-
-### From Plugin Repository
+### From Plugin Repository (Recommended)
 
 Add the following repository URL in **Dashboard > Plugins > Repositories**:
 
 ```
-https://raw.githubusercontent.com/GeiserX/smart-covers/main/manifest.json
+https://geiserx.github.io/smart-covers/manifest.json
 ```
 
 Then install **SmartCovers** from the plugin catalog and restart Jellyfin.
 
+### From Releases
+
+1. Download `smart-covers_7.0.0.0.zip` from the [latest release](https://github.com/GeiserX/smart-covers/releases/latest).
+2. Extract the contents into your Jellyfin plugins directory:
+   ```
+   <jellyfin-config>/plugins/SmartCovers_7.0.0.0/
+   ```
+   The zip contains `SmartCovers.dll`, `PDFtoImage.dll`, and native PDFium libraries for all platforms under `runtimes/`.
+3. Restart Jellyfin.
+
 ### Building from Source
 
 ```bash
-dotnet build SmartCovers/SmartCovers.csproj -c Release
+dotnet publish SmartCovers/SmartCovers.csproj -c Release -o publish
 ```
 
-The compiled DLL will be at:
-```
-SmartCovers/bin/Release/net9.0/SmartCovers.dll
-```
+The output will be in the `publish/` directory. Copy `SmartCovers.dll`, `PDFtoImage.dll`, and the `runtimes/` folder containing native PDFium libraries to your plugins directory.
 
 ## Requirements
 
 | Dependency | Required For | Notes |
 |------------|-------------|-------|
 | Jellyfin 10.11+ | All features | Minimum supported server version |
-| `poppler-utils` | PDF covers | Provides `pdftoppm`; not bundled with Jellyfin |
 | `ffmpeg` | Audio covers | Bundled with Jellyfin Docker images |
 | [Bookshelf plugin](https://github.com/jellyfin/jellyfin-plugin-bookshelf) v13+ | EPUB covers | Recommended; handles standard EPUB covers as primary provider |
 
-### Installing poppler-utils (Docker)
-
-Add this to your `docker-compose.yml` entrypoint so `pdftoppm` is available at runtime:
-
-```yaml
-entrypoint:
-  - /bin/bash
-  - -c
-  - |
-    which pdftoppm > /dev/null 2>&1 || \
-      (apt-get update -qq && \
-       apt-get install -y -qq --no-install-recommends poppler-utils > /dev/null 2>&1 && \
-       rm -rf /var/lib/apt/lists/*)
-    exec /jellyfin/jellyfin
-```
+PDF rendering requires no external dependencies -- the native PDFium library is bundled with the plugin for all platforms (Linux x64/arm64, macOS, Windows).
 
 ## Configuration
 
@@ -147,8 +130,7 @@ After installation, configure the plugin in **Dashboard > SmartCovers** (appears
 |---------|---------|-------------|
 | Online Cover Fetching | Enabled | Search Open Library and Google Books when local extraction fails. No API key needed. |
 | DPI | 150 | Resolution for PDF first-page rendering. Higher values produce sharper covers at the cost of speed. |
-| JPEG Quality | 85 | Output compression level (1--100). Lower values produce smaller files. |
-| Timeout | 30 s | Maximum time allowed per extraction. Applies to both `pdftoppm` and `ffmpeg`. |
+| Timeout | 30 s | Maximum time allowed per extraction. Applies to both PDF rendering and `ffmpeg`. |
 
 ### Per-Library Enable/Disable
 
@@ -157,8 +139,8 @@ The plugin settings page includes a **Libraries** section where you can enable o
 ## Troubleshooting
 
 **PDF covers are not extracted**
-- Verify that `pdftoppm` is installed and accessible: run `which pdftoppm` inside the Jellyfin container.
-- Check the Jellyfin log for `pdftoppm not found`.
+- Check the plugin config page -- it shows whether the PDFium native library loaded successfully.
+- Check the Jellyfin log for `PDFium native library failed to load`.
 
 **Audio covers are not extracted**
 - Confirm `ffmpeg` is available: run `which ffmpeg` inside the container.

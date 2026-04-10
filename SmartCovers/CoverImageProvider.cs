@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Drawing;
 using MediaBrowser.Model.Entities;
@@ -53,7 +54,7 @@ public class CoverImageProvider : IDynamicImageProvider
     public string Name => "SmartCovers";
 
     /// <inheritdoc />
-    public bool Supports(BaseItem item) => item is Book || item is AudioBook;
+    public bool Supports(BaseItem item) => item is Book || item is AudioBook || item is Audio || item is MusicAlbum;
 
     /// <inheritdoc />
     public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
@@ -233,12 +234,11 @@ public class CoverImageProvider : IDynamicImageProvider
 
         try
         {
-            // Run synchronous PDFium rendering on a thread-pool thread with a
-            // timeout so that a malformed PDF cannot stall the metadata pipeline.
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSec));
-
-            var ms = await Task.Run(
+            // Run synchronous PDFium rendering on a thread-pool thread.
+            // Task.Run's token only prevents scheduling — it cannot interrupt
+            // SaveJpeg once it's running. Race against Task.Delay for a real
+            // timeout boundary.
+            var renderTask = Task.Run(
                 () =>
                 {
                     using var pdfStream = File.OpenRead(path);
@@ -247,7 +247,19 @@ public class CoverImageProvider : IDynamicImageProvider
                     Conversion.SaveJpeg(output, pdfStream, page: new Index(0), options: options);
                     return output;
                 },
-                timeoutCts.Token).ConfigureAwait(false);
+                cancellationToken);
+
+            var completed = await Task.WhenAny(
+                renderTask,
+                Task.Delay(TimeSpan.FromSeconds(timeoutSec), cancellationToken)).ConfigureAwait(false);
+
+            if (completed != renderTask)
+            {
+                _logger.LogWarning("PDF rendering timed out after {Timeout}s for {Path}", timeoutSec, path);
+                return noImage;
+            }
+
+            var ms = await renderTask.ConfigureAwait(false);
 
             if (ms.Length == 0)
             {
@@ -265,11 +277,6 @@ public class CoverImageProvider : IDynamicImageProvider
                 Stream = ms,
                 Format = ImageFormat.Jpg
             };
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            _logger.LogWarning("PDF rendering timed out after {Timeout}s for {Path}", timeoutSec, path);
-            return noImage;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -697,10 +704,16 @@ public class CoverImageProvider : IDynamicImageProvider
             };
 
             process.Start();
-            process.WaitForExit(5000);
-
-            _ffmpegPath = "ffmpeg";
-            _logger.LogInformation("Found system ffmpeg — audio cover extraction enabled");
+            if (process.WaitForExit(5000) && process.ExitCode == 0)
+            {
+                _ffmpegPath = "ffmpeg";
+                _logger.LogInformation("Found system ffmpeg — audio cover extraction enabled");
+            }
+            else
+            {
+                _logger.LogWarning("ffmpeg found but returned non-zero exit code. Audio cover extraction disabled");
+                _ffmpegPath = null;
+            }
         }
         catch (Exception)
         {

@@ -3,11 +3,19 @@
     "guid": "82eef869-3f18-4678-968d-06efc10b60cf",
     "name": "SmartCovers",
     "overview": "Cover extraction for books, audiobooks, comics, and music — with online fallback via Open Library & Google Books.",
-    "description": "Cover provider for Jellyfin libraries. Extracts PDF first pages via pdftoppm, searches EPUB archives for cover images, and extracts embedded artwork from audio files via ffmpeg. When local extraction fails, automatically fetches covers from Open Library and Google Books as a last resort.",
+    "description": "Cover provider for Jellyfin libraries. Renders PDF first pages via built-in PDFium (no external tools needed), searches EPUB archives for cover images, and extracts embedded artwork from audio files via ffmpeg. When local extraction fails, automatically fetches covers from Open Library and Google Books as a last resort.",
     "owner": "GeiserX",
     "category": "General",
     "imageUrl": "",
     "versions": [
+      {
+        "version": "7.0.0.0",
+        "changelog": "Built-in PDF rendering via PDFium (no poppler-utils needed). Music library support. SkiaSharp 3.x compatibility.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/GeiserX/smart-covers/releases/download/v7.0.0.0/smart-covers_7.0.0.0.zip",
+        "checksum": "",
+        "timestamp": "2026-04-10T00:00:00Z"
+      },
       {
         "version": "6.0.0.0",
         "changelog": "Rename to SmartCovers (Jellyfin branding compliance). All namespaces, DLL, and provider names updated.",
