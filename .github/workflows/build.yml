@@ -1,11 +1,9 @@
-name: Build & Release
+name: Build and Release
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,10 +13,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -31,54 +27,29 @@ jobs:
       - name: Build
         run: dotnet build SmartCovers/SmartCovers.csproj -c Release --no-restore
 
+      - name: Get version from csproj
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=<Version>)[^<]+' SmartCovers/SmartCovers.csproj)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Create plugin package
         run: |
-          mkdir -p artifacts
-          cp SmartCovers/bin/Release/net9.0/SmartCovers.dll artifacts/
-          cp build.yaml artifacts/
-          cd artifacts && zip -r ../smart-covers.zip .
+          mkdir -p release
+          cp SmartCovers/bin/Release/net9.0/SmartCovers.dll release/
+          cp build.yaml release/
+          cd release && zip -r ../smart-covers_${{ steps.version.outputs.version }}.zip .
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: smart-covers-plugin
-          path: smart-covers.zip
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: smart-covers-plugin
-
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: SmartCovers v${{ steps.version.outputs.VERSION }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: smart-covers.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(md5sum smart-covers_${{ steps.version.outputs.version }}.zip | cut -d ' ' -f 1)
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
 
       - name: Update manifest.json
         run: |
-          VERSION=${{ steps.version.outputs.VERSION }}
-          CHECKSUM=$(md5sum smart-covers.zip | awk '{print $1}')
+          VERSION="${{ steps.version.outputs.version }}"
+          CHECKSUM="${{ steps.checksum.outputs.checksum }}"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           cat > manifest.json << EOF
@@ -90,13 +61,12 @@ jobs:
               "description": "Cover provider for Jellyfin libraries. Extracts PDF first pages via pdftoppm, searches EPUB archives for cover images, and extracts embedded artwork from audio files via ffmpeg. When local extraction fails, automatically fetches covers from Open Library and Google Books as a last resort.",
               "owner": "GeiserX",
               "category": "General",
-              "imageUrl": "",
               "versions": [
                 {
                   "version": "${VERSION}",
-                  "changelog": "See https://github.com/GeiserX/smart-covers/releases/tag/v${VERSION}",
+                  "changelog": "See https://github.com/GeiserX/smart-covers/releases",
                   "targetAbi": "10.11.0.0",
-                  "sourceUrl": "https://github.com/GeiserX/smart-covers/releases/download/v${VERSION}/smart-covers.zip",
+                  "sourceUrl": "https://github.com/GeiserX/smart-covers/releases/download/v${VERSION}/smart-covers_${VERSION}.zip",
                   "checksum": "${CHECKSUM}",
                   "timestamp": "${TIMESTAMP}"
                 }
@@ -105,24 +75,15 @@ jobs:
           ]
           EOF
 
-      - name: Commit manifest update
-        uses: stefanzweifel/git-auto-commit-action@v5
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          commit_message: "chore: update manifest.json for v${{ steps.version.outputs.VERSION }}"
-          file_pattern: manifest.json
-          branch: main
-          skip_checkout: true
-
-  deploy-pages:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+          tag_name: v${{ steps.version.outputs.version }}
+          name: SmartCovers v${{ steps.version.outputs.version }}
+          files: smart-covers_${{ steps.version.outputs.version }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
